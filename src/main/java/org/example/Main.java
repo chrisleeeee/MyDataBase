@@ -26,9 +26,7 @@ public class Main {
                         System.out.println("Exiting...");
                         break;
                     }
-
-                    // Process the user's query here.
-//                    parseQuery(line);
+                    System.out.println(line);
                 } catch (UserInterruptException e) {
                     // Handle Ctrl+C or other user interruptions if needed.
                     System.out.println("Interrupted.");
