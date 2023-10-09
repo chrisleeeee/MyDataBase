@@ -1,6 +1,19 @@
 package org.example;
 
-import org.jline.reader.*;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.example.Exception.ParsingException;
+import org.example.Exception.TableException;
+import org.example.Executor.Executor;
+import org.example.Executor.StorageManager;
+import org.example.gen.TableQueryGrammarLexer;
+import org.example.gen.TableQueryGrammarParser;
+import org.example.statement.*;
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 
@@ -10,6 +23,7 @@ public class Main {
 
     public static void main(String[] args) {
         try {
+            StorageManager.getInstance();
             Terminal terminal = TerminalBuilder.builder().system(true).build();
             LineReader lineReader = LineReaderBuilder.builder().terminal(terminal).build();
 
@@ -26,10 +40,14 @@ public class Main {
                         System.out.println("Exiting...");
                         break;
                     }
-                    System.out.println(line);
+
+//                    System.out.println(line);
+                    parseQuery(line);
+
                 } catch (UserInterruptException e) {
-                    // Handle Ctrl+C or other user interruptions if needed.
                     System.out.println("Interrupted.");
+                } catch (TableException | ParsingException e) {
+                    System.out.println(e.getMessage());
                 }
             }
         } catch (EndOfFileException | IOException e) {
@@ -37,7 +55,46 @@ public class Main {
         }
     }
 
+    private static void parseQuery(String line) throws TableException, ParsingException {
+        CharStream input = CharStreams.fromString(line);
 
+        TableQueryGrammarLexer lexer = new TableQueryGrammarLexer(input);
+
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+
+        TableQueryGrammarParser parser = new TableQueryGrammarParser(tokens);
+        parser.removeErrorListeners();
+        parser.addErrorListener(new StatementErrorListener());
+        TableQueryGrammarParser.QueryContext queryContext = parser.query();
+        StatementVisitor visitor = new StatementVisitor();
+        Statement statement = visitor.visit(queryContext);
+
+        switch (statement.getType()) {
+            case CREATE:
+                Executor.executeCreateStatement((CreateTableStatement) statement);
+                System.out.println("Successfully created the Table");
+                break;
+            case DROP:
+                Executor.executeDropStatement(statement);
+                System.out.println("Successfully dropped the Table");
+                break;
+            case ADD:
+                System.out.println("add command");
+                Executor.executeAddStatement((AddRecordStatement) statement);
+                break;
+            case FIND:
+                System.out.println("Find command");
+                Executor.executeFindStatement((FindRecordStatement) statement);
+                break;
+            case DELETE:
+                System.out.println("Delete command");
+                break;
+            case UPDATE:
+                System.out.println("update command");
+                break;
+        }
+
+    }
 
 
 }
