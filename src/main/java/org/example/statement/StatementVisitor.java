@@ -40,7 +40,7 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
     public Statement visitFindRecordStatement(TableQueryGrammarParser.FindRecordStatementContext ctx) {
         FindRecordStatement statement = new FindRecordStatement();
         ;
-        statement.setSelectedColumn(parseSelectedColumns(ctx.columnName()));
+        statement.setSelectedColumn(parseSelectedColumns(ctx.columnList()));
         statement.setTableName(ctx.tableName().getText().toLowerCase());
         statement.setType(TypeEnum.FIND);
         if (ctx.conditionList() != null) {
@@ -50,13 +50,26 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         return statement;
     }
 
-    private List<String> parseSelectedColumns(List<TableQueryGrammarParser.ColumnNameContext> columnName) {
+    private List<String> parseSelectedColumns(TableQueryGrammarParser.ColumnListContext columnList) {
         List<String> selectedColumns = new ArrayList<>();
-        for (TableQueryGrammarParser.ColumnNameContext ctx : columnName) {
-            selectedColumns.add(ctx.getText());
+        if (columnList.columnName().size() == 0) {
+            selectedColumns.add("*");
+        }
+
+        for (TableQueryGrammarParser.ColumnNameContext columnNameContext : columnList.columnName()) {
+            selectedColumns.add(columnNameContext.getText().toLowerCase());
         }
         return selectedColumns;
     }
+
+//    private List<String> parseSelectedColumns(List<TableQueryGrammarParser.ColumnListContext> columnName) {
+//        List<String> selectedColumns = new ArrayList<>();
+//        for (TableQueryGrammarParser.ColumnListContext ctx : columnName) {
+//            selectedColumns.add(ctx.getText());
+//        }
+//        return selectedColumns;
+//    }
+
 
     private ConditionNode parseCondition(TableQueryGrammarParser.LogicalExpressionContext root) {
         if (root.logicalExpression().size() == 0) {
@@ -64,7 +77,7 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
             // use ConditionExpression
             ConditionExpression expression = new ConditionExpression();
             expression.setColumnName(root.comparisonExpression().columnName().getText());
-            expression.setValue(root.comparisonExpression().dataValue().toString());
+            expression.setValue(root.comparisonExpression().dataValue().getText());
             switch (root.comparisonExpression().children.get(1).getText()) {
                 case "=" -> expression.setComparator(ComparisonOperator.EQ);
                 case ">" -> expression.setComparator(ComparisonOperator.GT);

@@ -101,6 +101,18 @@ public class TableQueryGrammarBaseListener implements TableQueryGrammarListener 
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterColumnList(TableQueryGrammarParser.ColumnListContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitColumnList(TableQueryGrammarParser.ColumnListContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterLogicalExpression(TableQueryGrammarParser.LogicalExpressionContext ctx) { }
 	/**
 	 * {@inheritDoc}

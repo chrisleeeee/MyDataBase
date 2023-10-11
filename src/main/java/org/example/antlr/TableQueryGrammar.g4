@@ -8,9 +8,10 @@ dropTableStatement: DropTable tableName ';'?;
 // addRecord (name = 'Zeyu Li', age = 12) to student;
 addRecordStatement: AddRecord '(' columnAssignment  (',' columnAssignment)* ')' To tableName ';'?;
 // find (name, age) from tableName Having name='Zeyu Li' and age>23;
-findRecordStatement: FindRecord '(' ((columnName (',' columnName))|'*')')' From tableName (conditionList)? ';'? EOF;
+findRecordStatement: FindRecord columnList From tableName (conditionList)? ';'? EOF;
 conditionList: Having expression;
 expression: logicalExpression;
+columnList: '(' ((columnName (',' columnName)*) | '*')')';
 logicalExpression
     : NOT logicalExpression
     |logicalExpression AND logicalExpression

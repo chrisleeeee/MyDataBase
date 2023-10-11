@@ -78,6 +78,16 @@ public interface TableQueryGrammarListener extends ParseTreeListener {
 	 */
 	void exitExpression(TableQueryGrammarParser.ExpressionContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#columnList}.
+	 * @param ctx the parse tree
+	 */
+	void enterColumnList(TableQueryGrammarParser.ColumnListContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#columnList}.
+	 * @param ctx the parse tree
+	 */
+	void exitColumnList(TableQueryGrammarParser.ColumnListContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link TableQueryGrammarParser#logicalExpression}.
 	 * @param ctx the parse tree
 	 */

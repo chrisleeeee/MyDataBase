@@ -53,6 +53,12 @@ public interface TableQueryGrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitExpression(TableQueryGrammarParser.ExpressionContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#columnList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitColumnList(TableQueryGrammarParser.ColumnListContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link TableQueryGrammarParser#logicalExpression}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
