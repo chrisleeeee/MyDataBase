@@ -184,7 +184,17 @@ public class StorageManager {
             indexes.add(pair.getKey());
             dataTypes.add(pair.getValue());
         }
-        sparkReader.readTableData(STORAGE_PATH + statement.getTableName() + ".txt", indexes, dataTypes);
+        if(statement.getCondition() == null) {
+            sparkReader.readTableData(STORAGE_PATH + statement.getTableName() + ".txt", indexes, dataTypes);
+        } else {
+            sparkReader.readTableDataWithCondition(STORAGE_PATH + statement.getTableName() + ".txt",
+                    indexes,
+                    dataTypes,
+                    this.metaData.getTableDefinitionMap().get(tableName).getColumns(),
+                    statement.getCondition());
+            System.out.println("got condition !");
+        }
+
 
     }
 

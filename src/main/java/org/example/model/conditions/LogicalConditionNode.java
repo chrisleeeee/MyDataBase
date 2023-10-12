@@ -1,6 +1,7 @@
 package org.example.model.conditions;
 
-public class LogicalConditionNode extends ConditionNode{
+
+public class LogicalConditionNode extends ConditionNode {
     private ConditionNode left;
     private LogicalOperator operator;
     private ConditionNode right;
