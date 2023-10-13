@@ -39,10 +39,20 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
     @Override
     public Statement visitFindRecordStatement(TableQueryGrammarParser.FindRecordStatementContext ctx) {
         FindRecordStatement statement = new FindRecordStatement();
-        ;
         statement.setSelectedColumn(parseSelectedColumns(ctx.columnList()));
         statement.setTableName(ctx.tableName().getText().toLowerCase());
         statement.setType(TypeEnum.FIND);
+        if (ctx.conditionList() != null) {
+            TableQueryGrammarParser.LogicalExpressionContext root = ctx.conditionList().expression().logicalExpression();
+            statement.setCondition(parseCondition(root));
+        }
+        return statement;
+    }
+
+    public Statement visitDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx) {
+        DeleteStatement statement = new DeleteStatement();
+        statement.setTableName(ctx.tableName().getText());
+        statement.setType(TypeEnum.DELETE);
         if (ctx.conditionList() != null) {
             TableQueryGrammarParser.LogicalExpressionContext root = ctx.conditionList().expression().logicalExpression();
             statement.setCondition(parseCondition(root));
@@ -61,14 +71,6 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         }
         return selectedColumns;
     }
-
-//    private List<String> parseSelectedColumns(List<TableQueryGrammarParser.ColumnListContext> columnName) {
-//        List<String> selectedColumns = new ArrayList<>();
-//        for (TableQueryGrammarParser.ColumnListContext ctx : columnName) {
-//            selectedColumns.add(ctx.getText());
-//        }
-//        return selectedColumns;
-//    }
 
 
     private ConditionNode parseCondition(TableQueryGrammarParser.LogicalExpressionContext root) {

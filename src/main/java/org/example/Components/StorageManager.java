@@ -12,6 +12,7 @@ import org.example.model.conditions.ConditionNode;
 import org.example.model.conditions.LogicalConditionNode;
 import org.example.model.table.TableAssignment;
 import org.example.model.table.TableDefinition;
+import org.example.statement.DeleteStatement;
 import org.example.statement.FindRecordStatement;
 
 import java.io.BufferedWriter;
@@ -21,6 +22,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class StorageManager {
@@ -48,7 +51,6 @@ public class StorageManager {
     public static void setInstance(StorageManager instance) {
         StorageManager.instance = instance;
     }
-
 
     public MetaData getMetaData() {
         return metaData;
@@ -82,7 +84,7 @@ public class StorageManager {
             objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
             try {
                 objectMapper.writeValue(new File(META_FILE_PATH), this.metaData);
-                File tableStorageFile = new File(STORAGE_PATH + "/" + definition.getName() + ".txt");
+                File tableStorageFile = new File(STORAGE_PATH + definition.getFileList().get(0));
                 tableStorageFile.createNewFile();
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -95,10 +97,18 @@ public class StorageManager {
         if (!metaData.getTableDefinitionMap().containsKey(tableName)) {
             throw new TableException("Table does not exist");
         }
-
         // drop meta data and storage file
+        for (String filePath : this.metaData.getTableDefinitionMap().get(tableName).getFileList()) {
+            File file = new File(STORAGE_PATH + filePath);
+            file.delete();
+        }
         metaData.getTableDefinitionMap().remove(tableName);
+        updateMetadata();
         //
+
+    }
+
+    private void updateMetadata() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         try {
@@ -106,30 +116,53 @@ public class StorageManager {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        File file = new File(STORAGE_PATH + tableName + ".txt");
-        file.delete();
-
     }
 
     public void insertRecord(TableAssignment tableAssignment) throws TableException {
-        if (!this.metaData.getTableDefinitionMap().containsKey(tableAssignment.getTableName())) {
+        String tableName = tableAssignment.getTableName();
+        if (!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
             throw new TableException("Table does not exist");
         }
+        String outputFile = this.metaData.getTableDefinitionMap().get(tableName).getFileList().get(0);
+        File file = new File(STORAGE_PATH + outputFile);
+        try {
+            if (file.exists()) {
+                long fileSize = file.length();
+                if (fileSize / 1024 > 64) {
+                    // exceed limited size
+                    // create a new file
+                    Pattern pattern = Pattern.compile(tableName + "(\\d+)\\.txt");
+                    Matcher matcher = pattern.matcher(outputFile);
+                    if (matcher.find()) {
+                        int fileIndex = Integer.parseInt(matcher.group(1)) + 1;
+                        outputFile = tableName + fileIndex + ".txt";
+                        File newFile = new File(STORAGE_PATH + outputFile);
+                        this.metaData.getTableDefinitionMap().get(tableName)
+                                .getFileList().add(0, tableName + fileIndex + ".txt");
+                        newFile.createNewFile();
+                        System.out.println(fileIndex);
+                    }
+                }
+            } else {
+                file.createNewFile();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         // check data type
-        TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(tableAssignment.getTableName());
+        TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(tableName);
         Map<String, ColumnInfo> columns = tableDefinition.getColumns();
 
-        String outputFile = STORAGE_PATH + tableAssignment.getTableName() + ".txt";
         // it's linkedHashSet, so the order is fixed.
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile, true))) {
+        System.out.println();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(STORAGE_PATH + outputFile, true))) {
             StringBuilder sb = new StringBuilder();
             // *******
             sb.append(1 + "\t");
             for (String key : columns.keySet()) {
                 String dataType = columns.get(key).getType();
                 String value = tableAssignment.getAssignments().get(key);
-
-
                 if (dataType.equals("int")) {
                     try {
                         int res = Integer.parseInt(value);
@@ -157,10 +190,13 @@ public class StorageManager {
                     sb.append(dataValue + "\t");
                 }
             }
-            writer.write(sb.toString() + "\n");
+            writer.write(sb + "\n");
         } catch (IOException e) {
+            System.out.println(STORAGE_PATH + outputFile);
+            e.printStackTrace();
             throw new TableException("Error occurred when inserting the data");
         }
+        updateMetadata();
 
     }
 
@@ -184,18 +220,18 @@ public class StorageManager {
             indexes.add(pair.getKey());
             dataTypes.add(pair.getValue());
         }
-        if(statement.getCondition() == null) {
-            sparkReader.readTableData(STORAGE_PATH + statement.getTableName() + ".txt", indexes, dataTypes);
-        } else {
-            sparkReader.readTableDataWithCondition(STORAGE_PATH + statement.getTableName() + ".txt",
-                    indexes,
-                    dataTypes,
-                    this.metaData.getTableDefinitionMap().get(tableName).getColumns(),
-                    statement.getCondition());
-            System.out.println("got condition !");
+        List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
+        for (String filePath : fileList) {
+            if (statement.getCondition() == null) {
+                sparkReader.readTableData(STORAGE_PATH + filePath, indexes, dataTypes);
+            } else {
+                sparkReader.readTableDataWithCondition(STORAGE_PATH + filePath,
+                        indexes,
+                        dataTypes,
+                        this.metaData.getTableDefinitionMap().get(tableName).getColumns(),
+                        statement.getCondition());
+            }
         }
-
-
     }
 
     private void checkFindCondition(String tableName, ConditionNode condition) throws TableException {
@@ -270,5 +306,23 @@ public class StorageManager {
             ret.add(new Pair<>(tableDefinition.getColumns().get(column).getIndex(), tableDefinition.getColumns().get(column).getType()));
         }
         return ret;
+    }
+
+    public void deleteWithCondition(DeleteStatement statement) {
+    }
+
+    public void deleteAllData(String tableName) {
+        List<String> fileList = this.getMetaData().getTableDefinitionMap().get(tableName).getFileList();
+        for (String file : fileList) {
+            File file1 = new File(STORAGE_PATH + file);
+            file1.delete();
+        }
+        this.metaData.getTableDefinitionMap().get(tableName).setFileList(List.of(tableName + "1.txt"));
+        File newFile = new File(STORAGE_PATH + tableName + "1.txt");
+        try {
+            newFile.createNewFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -5,10 +5,7 @@ import org.example.Exception.TableException;
 import org.example.model.ColumnDefinition;
 import org.example.model.table.TableAssignment;
 import org.example.model.table.TableDefinition;
-import org.example.statement.AddRecordStatement;
-import org.example.statement.CreateTableStatement;
-import org.example.statement.FindRecordStatement;
-import org.example.statement.Statement;
+import org.example.statement.*;
 
 public class Executor {
 
@@ -40,6 +37,7 @@ public class Executor {
             }
         }
         tableDefinition.setRecordLength(recordLength);
+        tableDefinition.getFileList().add(statement.getTableName()+"1.txt");
         storageManager.createTableMetaData(tableDefinition);
 
     }
@@ -56,8 +54,16 @@ public class Executor {
     }
 
     public static void executeFindStatement(FindRecordStatement statement) throws TableException{
-        System.out.println(statement.getTableName());
-        System.out.println(statement.getSelectedColumn());
         storageManager.findRecord(statement);
+    }
+
+    public static void executeDeleteStatement(DeleteStatement statement) throws TableException{
+        if(statement.getCondition() == null) {
+            // delete all data files
+            storageManager.deleteAllData(statement.getTableName());
+        } else {
+            storageManager.deleteWithCondition(statement);
+        }
+
     }
 }

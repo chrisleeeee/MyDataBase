@@ -1,7 +1,9 @@
 grammar TableQueryGrammar;
 
 // Parser rules
-query: createTableStatement | dropTableStatement | addRecordStatement | findRecordStatement;
+query: createTableStatement | dropTableStatement | addRecordStatement | findRecordStatement
+    | updateRecordStatement | deleteRecordStatement;
+
 // createTable student (name: string(20), age:int);
 createTableStatement: CreateTable tableName '(' columnDefinition (',' columnDefinition)* ')' ';'?;
 dropTableStatement: DropTable tableName ';'?;
@@ -9,6 +11,8 @@ dropTableStatement: DropTable tableName ';'?;
 addRecordStatement: AddRecord '(' columnAssignment  (',' columnAssignment)* ')' To tableName ';'?;
 // find (name, age) from tableName Having name='Zeyu Li' and age>23;
 findRecordStatement: FindRecord columnList From tableName (conditionList)? ';'? EOF;
+updateRecordStatement: UpdateRecord '(' columnAssignment  (',' columnAssignment)* ')' From tableName conditionList;
+deleteRecordStatement: DeleteRecord From tableName conditionList?;
 conditionList: Having expression;
 expression: logicalExpression;
 columnList: '(' ((columnName (',' columnName)*) | '*')')';
@@ -27,6 +31,8 @@ comparisonExpression
     | columnName '!=' dataValue;
 ///
 
+
+
 columnDefinition: columnName ':' dataType;
 columnAssignment: columnName '=' dataValue;
 columnName: IDENTIFIER;
@@ -42,6 +48,9 @@ CreateTable: [Cc][Rr][Ee][Aa][Tt][Ee][Tt][Aa][Bb][Ll][Ee];
 DropTable: [Dd][Rr][Oo][Pp][Tt][Aa][Bb][Ll][Ee];
 AddRecord: [Aa][Dd][Dd][Rr][Ee][Cc][Oo][Rr][Dd];
 FindRecord: [Ff][Ii][Nn][Dd][Rr][Ee][Cc][Oo][Rr][Dd];
+UpdateRecord: [Uu][Pp][Dd][Aa][Tt][Ee][Rr][Ee][Cc][Oo][Rr][Dd];
+DeleteRecord: [Dd][Ee][Ll][Ee][Tt][Ee][Rr][Ee][Cc][Oo][Rr][Dd];
+
 From: [Ff][Rr][Oo][Mm];
 Having: [Hh][Aa][Vv][Ii][Nn][Gg];
 To: ' '[Tt][Oo] ' ';

@@ -37,7 +37,7 @@ public class SparkReader {
     public void readTableData(String tablePath,
                               List<Integer> index, List<String> dataType) {
         JavaRDD<String> javaRDD = sparkContext.textFile(tablePath);
-        JavaRDD<List<Object>> map = javaRDD.filter(record -> record.charAt(0) == '1').zipWithIndex().map(record -> {
+        JavaRDD<List<Object>> map = javaRDD.zipWithIndex().filter(record -> record._1.charAt(0) == '1').map(record -> {
             long rowIndex = record._2();
             String[] split = record._1().split("\t");
             List<Object> data = new ArrayList<>();
@@ -69,8 +69,8 @@ public class SparkReader {
         }
 
         JavaRDD<List<Object>> allColumnsData = javaRDD
-                .filter(record -> record.charAt(0) == '1')
                 .zipWithIndex()
+                .filter(record -> record._1.charAt(0) == '1')
                 .map(record -> {
                     long rowIndex = record._2();
                     String[] split = record._1().split("\t");
@@ -105,6 +105,11 @@ public class SparkReader {
             filteredConditions.collect().forEach(System.out::println);
         }
     }
+
+    public void deleteTableData(String tablePath) {
+
+    }
+
 
     private JavaRDD<List<Object>> filterManyConditions(ConditionNode conditionNode,
                                                        Map<String, ColumnInfo> allColumnsInfo,

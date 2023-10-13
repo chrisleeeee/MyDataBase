@@ -53,6 +53,20 @@ public class TableQueryGrammarBaseVisitor<T> extends AbstractParseTreeVisitor<T>
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
+	@Override public T visitUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx) { return visitChildren(ctx); }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation returns the result of calling
+	 * {@link #visitChildren} on {@code ctx}.</p>
+	 */
+	@Override public T visitDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx) { return visitChildren(ctx); }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation returns the result of calling
+	 * {@link #visitChildren} on {@code ctx}.</p>
+	 */
 	@Override public T visitConditionList(TableQueryGrammarParser.ConditionListContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}

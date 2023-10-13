@@ -88,6 +88,7 @@ public class Main {
                 break;
             case DELETE:
                 System.out.println("Delete command");
+                Executor.executeDeleteStatement((DeleteStatement) statement);
                 break;
             case UPDATE:
                 System.out.println("update command");

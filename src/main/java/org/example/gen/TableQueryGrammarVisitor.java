@@ -41,6 +41,18 @@ public interface TableQueryGrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFindRecordStatement(TableQueryGrammarParser.FindRecordStatementContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#updateRecordStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#deleteRecordStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link TableQueryGrammarParser#conditionList}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

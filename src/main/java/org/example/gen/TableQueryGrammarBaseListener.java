@@ -77,6 +77,30 @@ public class TableQueryGrammarBaseListener implements TableQueryGrammarListener 
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterConditionList(TableQueryGrammarParser.ConditionListContext ctx) { }
 	/**
 	 * {@inheritDoc}
