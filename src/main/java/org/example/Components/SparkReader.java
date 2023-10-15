@@ -1,14 +1,14 @@
 package org.example.Components;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.example.model.ColumnInfo;
 import org.example.model.conditions.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 public class SparkReader {
 
@@ -47,7 +47,7 @@ public class SparkReader {
                     data.add(Integer.parseInt(split[index.get(i)]));
                 } else if (dataType.get(i).equals("float")) {
                     data.add(Double.parseDouble(split[index.get(i)]));
-                } else if (dataType.get(i).startsWith("string")) {
+                } else if (dataType.get(i).startsWith("s") || dataType.get(i).startsWith("S")) {
                     data.add(split[index.get(i)]);
                 }
             }
@@ -81,7 +81,7 @@ public class SparkReader {
                             data.add(Integer.parseInt(split[allIndexes.get(i)]));
                         } else if (allTypes.get(i).equals("float")) {
                             data.add(Double.parseDouble(split[allIndexes.get(i)]));
-                        } else if (allTypes.get(i).startsWith("string")) {
+                        } else if (allTypes.get(i).startsWith("s") || allTypes.get(i).startsWith("S")) {
                             data.add(split[allIndexes.get(i)]);
                         }
                     }
@@ -106,9 +106,83 @@ public class SparkReader {
         }
     }
 
-    public void deleteTableData(String tablePath) {
-
+    public void deleteTableDataWithCondition(String tablePath,
+                                                      Integer columnIndex,
+                                                      String dataType,
+                                                      String value,
+                                                      ComparisonOperator comparator) {
+        JavaRDD<String> rawData = sparkContext.textFile(tablePath);
+        JavaPairRDD<String, Long> filter = rawData.zipWithIndex()
+                .filter(record -> record._1().charAt(0) == '1')
+                .filter(record -> {
+                    String[] split = record._1().split("\t");
+                    String targetData = split[columnIndex];
+                    if (dataType.equalsIgnoreCase("int")) {
+                        int res = Integer.parseInt(targetData);
+                        int parseValue = Integer.parseInt(value);
+                        switch (comparator) {
+                            case EQ -> {return res == parseValue;}
+                            case NEQ -> {return res != parseValue;}
+                            case LT -> {return res < parseValue;}
+                            case LTE -> {return res <= parseValue;}
+                            case GT -> {return res > parseValue;}
+                            case GTE -> {return res >= parseValue;}
+                        }
+                    } else if (dataType.equalsIgnoreCase("float")) {
+                        double res = Double.parseDouble(targetData);
+                        double parseValue = Double.parseDouble(value);
+                        switch (comparator) {
+                            case EQ -> {return res == parseValue;}
+                            case NEQ -> {return res != parseValue;}
+                            case LT -> {return res < parseValue;}
+                            case LTE -> {return res <= parseValue;}
+                            case GT -> {return res > parseValue;}
+                            case GTE -> {return res >= parseValue;}
+                        }
+                    } else {
+                        String dValue = value.substring(1, value.length() - 1);
+                        System.out.println(Objects.equals(split[columnIndex], dValue));
+                        switch (comparator) {
+                            case EQ -> {return Objects.equals(split[columnIndex], dValue);}
+                            case NEQ -> {return !Objects.equals(split[columnIndex], dValue);}
+                        }
+                    }
+                    return false;
+                });
+        List<Long> rowsToDelete = filter.map(record -> record._2()).collect();
+        deleteRows(rowsToDelete, tablePath);
     }
+
+    private void deleteRows(List<Long> rowsToDelete, String tablePath) {
+        System.out.println(rowsToDelete);
+        try (BufferedReader br = new BufferedReader(new FileReader(tablePath));
+             BufferedWriter bw = new BufferedWriter(new FileWriter("temp_file.txt"))) {
+
+            String line;
+            long currentLine = 0;
+
+            while ((line = br.readLine()) != null) {
+                currentLine++;
+                if (!rowsToDelete.contains(currentLine - 1)) { // Convert to 0-based index
+                    bw.write(line);
+                    bw.newLine();
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Replace the original file with the temporary file
+        File originalFile = new File(tablePath);
+        System.out.println(originalFile.delete());
+        File tempFile = new File("temp_file.txt");
+        if (tempFile.renameTo(originalFile)) {
+            System.out.println("Lines removed successfully.");
+        } else {
+            System.out.println("Failed to remove lines.");
+        }
+    }
+
 
 
     private JavaRDD<List<Object>> filterManyConditions(ConditionNode conditionNode,
@@ -216,7 +290,7 @@ public class SparkReader {
                     data.add(record.get(indexes.get(i)));
                 } else if (dataTypes.get(i).equals("float")) {
                     data.add(record.get(indexes.get(i)));
-                } else if (dataTypes.get(i).startsWith("string")) {
+                } else if (dataTypes.get(i).startsWith("string") || dataTypes.get(i).startsWith("String")) {
                     data.add(record.get(indexes.get(i)));
                 }
             }
@@ -226,4 +300,111 @@ public class SparkReader {
     }
 
 
+    public void deleteTableDataWithConditionList(ConditionNode conditionNode,
+                                                 String filePath,
+                                                 Map<String, ColumnInfo> columns) {
+        JavaRDD<List<Object>> tableData = sparkContext.textFile(filePath)
+                .zipWithIndex()
+                .filter(record -> record._1.charAt(0) == '1')
+                .map(record -> {
+                    List<Object> data = new ArrayList<>();
+                    data.add(record._2);
+                    String[] split = record._1().split("\t");
+                    data.addAll(Arrays.asList(split).subList(1, split.length));
+                    return data;
+                });
+        JavaRDD<Long> rowsToDelete = getRowsToDelete(conditionNode, filePath, columns, tableData);
+        List<Long> rowsList = rowsToDelete.collect();
+        deleteRows(rowsList, filePath);
+
+    }
+
+    private JavaRDD<Long> getRowsToDelete(ConditionNode conditionNode,
+                                          String filePath,
+                                          Map<String, ColumnInfo> columns,
+                                          JavaRDD<List<Object>> tableData) {
+        if(conditionNode instanceof ConditionExpression expression) {
+            String columnName = expression.getColumnName();
+            String value = expression.getValue();
+            ComparisonOperator comparator = expression.getComparator();
+            int columnIndex = columns.get(columnName).getIndex();
+            String type = columns.get(columnName).getType();
+            JavaRDD<Long> map = tableData.filter(record -> {
+                Object object = record.get(columnIndex);
+                if (type.equalsIgnoreCase("int")) {
+                    int orgData = Integer.parseInt((String) object);
+                    int parseValue = Integer.parseInt(value);
+                    switch (comparator) {
+                        case EQ -> {
+                            return orgData == parseValue;
+                        }
+                        case NEQ -> {
+                            return orgData != parseValue;
+                        }
+                        case LT -> {
+                            return orgData < parseValue;
+                        }
+                        case LTE -> {
+                            return orgData <= parseValue;
+                        }
+                        case GT -> {
+                            return orgData > parseValue;
+                        }
+                        case GTE -> {
+                            return orgData >= parseValue;
+                        }
+                    }
+                } else if (type.equalsIgnoreCase("float")) {
+                    double orgData = Double.parseDouble((String) object);
+                    double parseValue = Double.parseDouble(value);
+                    switch (comparator) {
+                        case EQ -> {
+                            return orgData == parseValue;
+                        }
+                        case NEQ -> {
+                            return orgData != parseValue;
+                        }
+                        case LT -> {
+                            return orgData < parseValue;
+                        }
+                        case LTE -> {
+                            return orgData <= parseValue;
+                        }
+                        case GT -> {
+                            return orgData > parseValue;
+                        }
+                        case GTE -> {
+                            return orgData >= parseValue;
+                        }
+                    }
+                } else {
+                    String orgData = (String) object;
+                    final boolean equals = Objects.equals(orgData, value.substring(1, value.length() - 1));
+                    switch (comparator) {
+                        case EQ -> {
+                            return equals;
+                        }
+                        case NEQ -> {
+                            return !equals;
+                        }
+                    }
+                }
+                return false;
+            }).map(record -> {
+                Object index = record.get(0);
+                return (Long) index;
+            });
+            return map;
+        } else  {
+            LogicalConditionNode logicalConditionNode = (LogicalConditionNode) conditionNode;
+            JavaRDD<Long> leftIndex = getRowsToDelete(logicalConditionNode.getLeft() ,filePath, columns, tableData);
+            JavaRDD<Long> rightIndex = getRowsToDelete(logicalConditionNode.getRight() ,filePath, columns, tableData);
+            LogicalOperator operator = logicalConditionNode.getOperator();
+            if(operator.equals(LogicalOperator.OR)) {
+                return leftIndex.union(rightIndex);
+            } else {
+                return leftIndex.intersection(leftIndex);
+            }
+        }
+    }
 }

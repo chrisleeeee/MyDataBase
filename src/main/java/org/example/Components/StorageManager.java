@@ -34,6 +34,7 @@ public class StorageManager {
     private static StorageManager instance;
 
     private static SparkReader sparkReader;
+
     private MetaData metaData;
 
     private StorageManager() {
@@ -155,7 +156,6 @@ public class StorageManager {
         Map<String, ColumnInfo> columns = tableDefinition.getColumns();
 
         // it's linkedHashSet, so the order is fixed.
-        System.out.println();
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(STORAGE_PATH + outputFile, true))) {
             StringBuilder sb = new StringBuilder();
             // *******
@@ -177,7 +177,7 @@ public class StorageManager {
                     } catch (NumberFormatException e) {
                         throw new TableException("Expected Float for column " + key);
                     }
-                } else if (dataType.startsWith("string")) {
+                } else if (dataType.startsWith("s") || dataType.startsWith("S")) {
                     if (value.charAt(0) != '\'' || value.charAt(value.length() - 1) != '\'') {
                         throw new TableException("Expected String for column " + key);
                     }
@@ -190,7 +190,7 @@ public class StorageManager {
                     sb.append(dataValue + "\t");
                 }
             }
-            writer.write(sb + "\n");
+            writer.write(sb.toString() + "\n");
         } catch (IOException e) {
             System.out.println(STORAGE_PATH + outputFile);
             e.printStackTrace();
@@ -269,7 +269,7 @@ public class StorageManager {
             } catch (NumberFormatException e) {
                 throw new TableException("Expected Float for column " + columnName);
             }
-        } else if (dataType.startsWith("string")) {
+        } else if (dataType.startsWith("string") || dataType.startsWith("String")) {
             if (comparator != ComparisonOperator.EQ && comparator != ComparisonOperator.NEQ) {
                 throw new TableException("Invalid operator >,>=,<=,< for column(String) " + columnName);
             }
@@ -308,8 +308,30 @@ public class StorageManager {
         return ret;
     }
 
-    public void deleteWithCondition(DeleteStatement statement) {
+    public void deleteWithCondition(DeleteStatement statement) throws TableException {
+        String tableName = statement.getTableName();
+        ConditionNode condition = statement.getCondition();
+        checkFindCondition(tableName, condition);
+        // check
+        List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
+        if (condition instanceof ConditionExpression expression) {
+            for(String filePath: fileList) {
+                String columnName = expression.getColumnName();
+                int columnIndex = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getIndex();
+                String dataType = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getType();
+                ComparisonOperator comparator = expression.getComparator();
+                String value = expression.getValue();
+                sparkReader.deleteTableDataWithCondition(STORAGE_PATH + filePath, columnIndex, dataType, value, comparator);
+            }
+        } else if (condition instanceof LogicalConditionNode logicalNode) {
+            for(String filePath: fileList) {
+                sparkReader.deleteTableDataWithConditionList(logicalNode, STORAGE_PATH + filePath, this.metaData.getTableDefinitionMap().get(tableName).getColumns());
+            }
+            System.out.println("logical delete");
+        }
+
     }
+
 
     public void deleteAllData(String tableName) {
         List<String> fileList = this.getMetaData().getTableDefinitionMap().get(tableName).getFileList();

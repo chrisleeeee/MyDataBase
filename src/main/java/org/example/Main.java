@@ -51,7 +51,7 @@ public class Main {
                 }
             }
         } catch (EndOfFileException | IOException e) {
-            System.out.println("");
+            e.printStackTrace();
         }
     }
 
