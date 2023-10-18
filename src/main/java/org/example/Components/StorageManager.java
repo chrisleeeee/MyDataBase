@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import javafx.util.Pair;
 import org.example.Exception.TableException;
+import org.example.model.ColumnAssignment;
 import org.example.model.ColumnInfo;
 import org.example.model.MetaData;
 import org.example.model.conditions.ComparisonOperator;
@@ -14,11 +15,9 @@ import org.example.model.table.TableAssignment;
 import org.example.model.table.TableDefinition;
 import org.example.statement.DeleteStatement;
 import org.example.statement.FindRecordStatement;
+import org.example.statement.UpdateStatement;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -315,7 +314,7 @@ public class StorageManager {
         // check
         List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
         if (condition instanceof ConditionExpression expression) {
-            for(String filePath: fileList) {
+            for (String filePath : fileList) {
                 String columnName = expression.getColumnName();
                 int columnIndex = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getIndex();
                 String dataType = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getType();
@@ -324,7 +323,7 @@ public class StorageManager {
                 sparkReader.deleteTableDataWithCondition(STORAGE_PATH + filePath, columnIndex, dataType, value, comparator);
             }
         } else if (condition instanceof LogicalConditionNode logicalNode) {
-            for(String filePath: fileList) {
+            for (String filePath : fileList) {
                 sparkReader.deleteTableDataWithConditionList(logicalNode, STORAGE_PATH + filePath, this.metaData.getTableDefinitionMap().get(tableName).getColumns());
             }
             System.out.println("logical delete");
@@ -346,5 +345,120 @@ public class StorageManager {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+
+    private void checkColumnAssignment(String columnName, String dataValue, String dataType) throws TableException {
+        if (dataType.equals("int")) {
+            try {
+                Integer.parseInt(dataValue);
+            } catch (NumberFormatException e) {
+                throw new TableException("Expected Integer for column " + columnName);
+            }
+        } else if (dataType.equals("float")) {
+            try {
+                Double.parseDouble(dataValue);
+            } catch (NumberFormatException e) {
+                throw new TableException("Expected Float for column " + columnName);
+            }
+        } else {
+            if (dataValue.charAt(0) != '\'' || dataValue.charAt(dataValue.length() - 1) != '\'') {
+                throw new TableException("Expected String for column " + columnName);
+            }
+            String dValue = dataValue.substring(1, dataValue.length() - 1);
+            String lengthStr = dataType.substring(dataType.indexOf('(') + 1, dataType.indexOf(')'));
+            int length = Integer.parseInt(lengthStr);
+            if (dValue.length() > length) {
+                throw new TableException("Value " + dataValue + " for column '" + columnName + "' exceed the max length");
+            }
+        }
+    }
+
+    public void updateAllData(UpdateStatement statement) throws TableException {
+        System.out.println("update all");
+        String tableName = statement.getTableName();
+        // check table name
+        if (!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
+            throw new TableException("Table does not exist");
+        }
+
+        // check column name and data type
+        List<ColumnAssignment> assignments = statement.getAssignments();
+        Map<String, ColumnInfo> columnsInfo = this.metaData.getTableDefinitionMap().get(tableName).getColumns();
+        for (ColumnAssignment assignment : assignments) {
+            String columnName = assignment.getColumnName();
+            String dataValue = assignment.getDataValue();
+            if (!columnsInfo.containsKey(columnName)) {
+                throw new TableException("Column " + columnName + " does not exist in Table " + tableName);
+            }
+            String dataType = columnsInfo.get(columnName).getType();
+            checkColumnAssignment(columnName, dataValue, dataType);
+        }
+
+        List<String> fileList = this.getMetaData().getTableDefinitionMap().get(tableName).getFileList();
+        List<Integer> index = new ArrayList<>();
+        List<String> value = new ArrayList<>();
+        for (ColumnAssignment assignment : assignments) {
+            String columnName = assignment.getColumnName();
+            index.add(columnsInfo.get(columnName).getIndex());
+            if (assignment.getDataValue().startsWith("\'")) {
+                String dValue = assignment.getDataValue();
+                value.add(dValue.substring(1, dValue.length() - 1));
+            } else {
+                value.add(assignment.getDataValue());
+            }
+
+        }
+        for (String filePath : fileList) {
+            updateFile(filePath, index, value);
+        }
+    }
+
+    private void updateFile(String filePath,
+                            List<Integer> index,
+                            List<String> value) {
+        String outputFile = STORAGE_PATH + "tmp.txt";
+        File newFile = new File(outputFile);
+
+        try {
+            newFile.createNewFile();
+            BufferedReader reader = new BufferedReader(new FileReader(STORAGE_PATH + filePath));
+            List<String> modifiedLines = new ArrayList<>();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                String[] columns = line.split("\t");
+
+                // Modify the specified columns
+                for(int i = 0; i < index.size(); i ++) {
+                    int columnIndex = index.get(i);
+                    String modifyValue = value.get(i);
+                    columns[columnIndex] = modifyValue;
+                }
+
+                modifiedLines.add(String.join("\t", columns));
+            }
+
+            reader.close();
+
+            // Write the modified data to the output file
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+            for (String modifiedLine : modifiedLines) {
+                writer.write(modifiedLine);
+                writer.newLine();
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        File originalFile = new File(STORAGE_PATH + filePath);
+        originalFile.delete();
+        newFile.renameTo(originalFile);
+
+    }
+
+    public void updateWithCondition(UpdateStatement statement) {
+        System.out.println("update with condition");
     }
 }

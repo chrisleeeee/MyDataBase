@@ -1,5 +1,6 @@
 package org.example;
 
+import com.fasterxml.jackson.databind.util.ExceptionUtil;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -92,6 +93,7 @@ public class Main {
                 break;
             case UPDATE:
                 System.out.println("update command");
+                Executor.executeUpdateStatement((UpdateStatement) statement);
                 break;
         }
 

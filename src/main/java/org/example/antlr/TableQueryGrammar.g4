@@ -11,7 +11,7 @@ dropTableStatement: DropTable tableName ';'?;
 addRecordStatement: AddRecord '(' columnAssignment  (',' columnAssignment)* ')' To tableName ';'?;
 // find (name, age) from tableName Having name='Zeyu Li' and age>23;
 findRecordStatement: FindRecord columnList From tableName (conditionList)? ';'? EOF;
-updateRecordStatement: UpdateRecord '(' columnAssignment  (',' columnAssignment)* ')' From tableName conditionList;
+updateRecordStatement: UpdateRecord '(' columnAssignment  (',' columnAssignment)* ')' From tableName conditionList? ';'?;
 deleteRecordStatement: DeleteRecord From tableName conditionList?;
 conditionList: Having expression;
 expression: logicalExpression;

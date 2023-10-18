@@ -1,6 +1,8 @@
 package org.example.Components;
 
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.example.Exception.TableException;
 import org.example.model.ColumnDefinition;
 import org.example.model.table.TableAssignment;
@@ -10,6 +12,8 @@ import org.example.statement.*;
 public class Executor {
 
     private static final StorageManager storageManager = StorageManager.getInstance();
+
+    private static final Logger logger = LogManager.getLogger(Executor.class);
 
     public static void executeCreateStatement(CreateTableStatement statement) throws TableException {
         TableDefinition tableDefinition = new TableDefinition();
@@ -65,5 +69,13 @@ public class Executor {
             storageManager.deleteWithCondition(statement);
         }
 
+    }
+
+    public static void executeUpdateStatement(UpdateStatement statement) throws TableException{
+        if(statement.getCondition() == null) {
+            storageManager.updateAllData(statement);
+        } else {
+            storageManager.updateWithCondition(statement);
+        }
     }
 }

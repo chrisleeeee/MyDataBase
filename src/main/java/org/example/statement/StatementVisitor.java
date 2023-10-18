@@ -49,6 +49,7 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         return statement;
     }
 
+    @Override
     public Statement visitDeleteRecordStatement(TableQueryGrammarParser.DeleteRecordStatementContext ctx) {
         DeleteStatement statement = new DeleteStatement();
         statement.setTableName(ctx.tableName().getText());
@@ -57,6 +58,19 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
             TableQueryGrammarParser.LogicalExpressionContext root = ctx.conditionList().expression().logicalExpression();
             statement.setCondition(parseCondition(root));
         }
+        return statement;
+    }
+
+    @Override
+    public Statement visitUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx) {
+        UpdateStatement statement = new UpdateStatement();
+        statement.setType(TypeEnum.UPDATE);
+        statement.setTableName(ctx.tableName().getText().toLowerCase());
+        if (ctx.conditionList() != null) {
+            TableQueryGrammarParser.LogicalExpressionContext root = ctx.conditionList().expression().logicalExpression();
+            statement.setCondition(parseCondition(root));
+        }
+        statement.setColumnAssignmentWithContext(ctx.columnAssignment());
         return statement;
     }
 
