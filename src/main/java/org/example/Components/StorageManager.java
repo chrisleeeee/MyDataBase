@@ -458,7 +458,96 @@ public class StorageManager {
 
     }
 
-    public void updateWithCondition(UpdateStatement statement) {
+    public void updateWithCondition(UpdateStatement statement) throws TableException {
         System.out.println("update with condition");
+        String tableName = statement.getTableName();
+        if(!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
+            throw new TableException("Table " + tableName + " does not exist");
+        }
+
+        // check column assignments
+        List<ColumnAssignment> assignments = statement.getAssignments();
+        Map<String, ColumnInfo> columnsInfo = this.metaData.getTableDefinitionMap().get(tableName).getColumns();
+        for (ColumnAssignment assignment : assignments) {
+            String columnName = assignment.getColumnName();
+            String dataValue = assignment.getDataValue();
+            if (!columnsInfo.containsKey(columnName)) {
+                throw new TableException("Column " + columnName + " does not exist in Table " + tableName);
+            }
+            String dataType = columnsInfo.get(columnName).getType();
+            checkColumnAssignment(columnName, dataValue, dataType);
+        }
+
+        // check condition node
+        checkFindCondition(tableName, statement.getCondition());
+
+        // update file
+        List<Integer> index = new ArrayList<>();
+        List<String> value = new ArrayList<>();
+        for (ColumnAssignment assignment : assignments) {
+            String columnName = assignment.getColumnName();
+            index.add(columnsInfo.get(columnName).getIndex());
+            if (assignment.getDataValue().startsWith("\'")) {
+                String dValue = assignment.getDataValue();
+                value.add(dValue.substring(1, dValue.length() - 1));
+            } else {
+                value.add(assignment.getDataValue());
+            }
+
+        }
+        List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
+        for(String filePath: fileList) {
+            List<Long> rowList = sparkReader.updateTableWithCondition(STORAGE_PATH + filePath, index, value, statement.getCondition(), columnsInfo);
+            updateFileWithCondition(filePath, rowList, index, value);
+        }
+
+    }
+
+    private void updateFileWithCondition(String filePath, List<Long> rowList, List<Integer> index, List<String> value) {
+        String outputFile = STORAGE_PATH + "tmp.txt";
+        File newFile = new File(outputFile);
+
+        try {
+            newFile.createNewFile();
+            BufferedReader reader = new BufferedReader(new FileReader(STORAGE_PATH + filePath));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+
+            String line;
+            int currentRow = 0;
+
+            while ((line = reader.readLine()) != null) {
+                // Check if the current row should be updated
+                if (rowList.contains((long) currentRow)) {
+                    String[] columns = line.split("\t");
+
+                    // Modify the specified columns
+                    for (int i = 0; i < index.size(); i++) {
+                        int columnIndex = index.get(i);
+                        String modifyValue = value.get(i);
+                        columns[columnIndex] = modifyValue;
+                    }
+
+                    // Write the modified line to the output file
+                    writer.write(String.join("\t", columns));
+                    writer.newLine();
+                } else {
+                    // If the row should not be updated, write it as is
+                    writer.write(line);
+                    writer.newLine();
+                }
+                currentRow++;
+            }
+
+            reader.close();
+            writer.close();
+
+            // Delete the original file and rename the new file
+            File originalFile = new File(STORAGE_PATH + filePath);
+            originalFile.delete();
+            newFile.renameTo(originalFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 }
