@@ -68,7 +68,6 @@ public class Executor {
         } else {
             storageManager.deleteWithCondition(statement);
         }
-
     }
 
     public static void executeUpdateStatement(UpdateStatement statement) throws TableException{

@@ -10,32 +10,37 @@ dropTableStatement: DropTable tableName ';'?;
 // addRecord (name = 'Zeyu Li', age = 12) to student;
 addRecordStatement: AddRecord '(' columnAssignment  (',' columnAssignment)* ')' To tableName ';'?;
 // find (name, age) from tableName Having name='Zeyu Li' and age>23;
-findRecordStatement: FindRecord columnList From tableName (conditionList)? ';'? EOF;
+findRecordStatement: FindRecord columnList From tableName (joinConditionList)? (conditionList)? groupByClause? ';'? EOF;
 updateRecordStatement: UpdateRecord '(' columnAssignment  (',' columnAssignment)* ')' From tableName conditionList? ';'?;
 deleteRecordStatement: DeleteRecord From tableName conditionList?;
 conditionList: Having expression;
 expression: logicalExpression;
-columnList: '(' ((columnName (',' columnName)*) | '*')')';
+groupByClause: GroupBy columnList;
+columnList: '(' (((columnName) (',' (columnName))*) | )')';
+tableColumnName: tableName '.' columnName;
+joinConditionList: joinCondition+;
+joinCondition: Join tableName On tableColumnName '=' tableColumnName;
 logicalExpression
     : NOT logicalExpression
-    |logicalExpression AND logicalExpression
+    | logicalExpression AND logicalExpression
     | logicalExpression OR logicalExpression
     | comparisonExpression;
 
 comparisonExpression
-    : columnName '=' dataValue
-    | columnName '<' dataValue
-    | columnName '>' dataValue
-    | columnName '>=' dataValue
-    | columnName '<=' dataValue
-    | columnName '!=' dataValue;
+    : (columnName) '=' dataValue
+    | (columnName) '<' dataValue
+    | (columnName) '>' dataValue
+    | (columnName) '>=' dataValue
+    | (columnName) '<=' dataValue
+    | (columnName) '!=' dataValue;
 ///
 
 
 
 columnDefinition: columnName ':' dataType;
 columnAssignment: columnName '=' dataValue;
-columnName: IDENTIFIER;
+columnName: ((tableName '.')?IDENTIFIER ('.' aggregateFunctions)?) | ('*'('.' aggregateFunctions)?);
+aggregateFunctions: MAX| MIN| AVG | SUM | COUNT;
 dataValue: INT_VALUE | STRING_VALUE | FlOAT_VALUE;
 
 tableName: IDENTIFIER;
@@ -50,7 +55,15 @@ AddRecord: [Aa][Dd][Dd][Rr][Ee][Cc][Oo][Rr][Dd];
 FindRecord: [Ff][Ii][Nn][Dd][Rr][Ee][Cc][Oo][Rr][Dd];
 UpdateRecord: [Uu][Pp][Dd][Aa][Tt][Ee][Rr][Ee][Cc][Oo][Rr][Dd];
 DeleteRecord: [Dd][Ee][Ll][Ee][Tt][Ee][Rr][Ee][Cc][Oo][Rr][Dd];
+MAX: [Mm][Aa][Xx];
+MIN: [Mm][Ii][Nn];
+AVG: [Aa][Vv][Gg];
+SUM: [Ss][Uu][Mm];
+COUNT: [Cc][Oo][Uu][Nn][Tt];
 
+GroupBy: [Gg][Rr][Oo][Uu][Pp][ ][Bb][Yy];
+Join: [Jj][Oo][Ii][Nn];
+On:[Oo][Nn];
 From: [Ff][Rr][Oo][Mm];
 Having: [Hh][Aa][Vv][Ii][Nn][Gg];
 To: ' '[Tt][Oo] ' ';

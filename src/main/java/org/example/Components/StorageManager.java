@@ -2,11 +2,8 @@ package org.example.Components;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import javafx.util.Pair;
 import org.example.Exception.TableException;
-import org.example.model.ColumnAssignment;
-import org.example.model.ColumnInfo;
-import org.example.model.MetaData;
+import org.example.model.*;
 import org.example.model.conditions.ComparisonOperator;
 import org.example.model.conditions.ConditionExpression;
 import org.example.model.conditions.ConditionNode;
@@ -201,39 +198,106 @@ public class StorageManager {
 
 
     public void findRecord(FindRecordStatement statement) throws TableException {
-        String tableName = statement.getTableName();
-        List<String> selectedColumns = statement.getSelectedColumn();
-        // check table existence
-        if (!this.metaData.getTableDefinitionMap().containsKey(statement.getTableName())) {
-            throw new TableException("Table does not exist");
+        System.out.println("find statement");
+        checkFindValidity(statement);
+        if(statement.getJoinClause() == null) {
+            System.out.println("check completed, perform single table find");
+        } else {
+            System.out.println("check completed, perform multiple table find");
         }
-        // check column validity
-        List<Pair<Integer, String>> indexesAndTypes = getFindSelectedIndexTypes(tableName, selectedColumns);
 
-        // check condition validity
-        checkFindCondition(tableName, statement.getCondition());
-        // perform find
-        List<Integer> indexes = new ArrayList<>();
-        List<String> dataTypes = new ArrayList<>();
-        for (Pair<Integer, String> pair : indexesAndTypes) {
-            indexes.add(pair.getKey());
-            dataTypes.add(pair.getValue());
-        }
-        List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
-        for (String filePath : fileList) {
-            if (statement.getCondition() == null) {
-                sparkReader.readTableData(STORAGE_PATH + filePath, indexes, dataTypes);
-            } else {
-                sparkReader.readTableDataWithCondition(STORAGE_PATH + filePath,
-                        indexes,
-                        dataTypes,
-                        this.metaData.getTableDefinitionMap().get(tableName).getColumns(),
-                        statement.getCondition());
-            }
-        }
+
     }
 
-    private void checkFindCondition(String tableName, ConditionNode condition) throws TableException {
+    private void checkFindValidity(FindRecordStatement statement) throws TableException {
+        String mainTableName = statement.getTableName();
+        if (!this.metaData.getTableDefinitionMap().containsKey(mainTableName)) {
+            throw new TableException("Table " + mainTableName + " does not exist");
+        }
+
+        // single table find
+        List<SelectedColumn> selectedColumns = statement.getSelectedColumn();
+        if (statement.getJoinClause() == null) {
+            checkSelectedColumnsForSingle(selectedColumns, mainTableName, statement.getGroupByColumn(), statement.getCondition());
+        } else {
+            // multiple table find
+            checkSelectedColumnsForJoins(selectedColumns, mainTableName, statement.getJoinClause(), statement.getGroupByColumn());
+        }
+
+    }
+
+    private void checkSelectedColumnsForJoins(List<SelectedColumn> selectedColumns,
+                                              String mainTableName,
+                                              List<JoinClause> joinClause,
+                                              List<SelectedColumn> groupByColumn) {
+
+    }
+
+    private void checkSelectedColumnsForSingle(List<SelectedColumn> selectedColumns,
+                                               String mainTableName,
+                                               List<SelectedColumn> groupByColumn,
+                                               ConditionNode condition) throws TableException {
+        System.out.println("check single table select statement!");
+        TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(mainTableName);
+        if (selectedColumns.size() == 1 && selectedColumns.get(0).getColumnName().equals("*")) {
+            // can only perform count
+            if (selectedColumns.get(0).getType() != null && !selectedColumns.get(0).getType().equals(AggregateType.COUNT)) {
+                throw new TableException("Can only perform COUNT on all columns");
+            }
+            return;
+        }
+
+        // check selected columns for single table selection
+        for (SelectedColumn column : selectedColumns) {
+            String tableName = column.getTableName();
+            String columnName = column.getColumnName();
+            AggregateType type = column.getType();
+            if(columnName.equals("*")) {
+                if(type!=null && !type.equals(AggregateType.COUNT)) {
+                    throw new TableException("Invalid Aggregate function for *");
+                }
+                if(type == null) {
+                    throw new TableException("Syntax Error");
+                }
+                continue;
+            }
+            if (tableName != null && !tableName.equals(mainTableName)) {
+                throw new TableException("Mismatched table names: " + tableName + " and " + mainTableName);
+            }
+            if (!tableDefinition.getColumns().containsKey(columnName)) {
+                throw new TableException("Unknown column " + columnName + " in table " + mainTableName);
+            }
+            ColumnInfo columnInfo = tableDefinition.getColumns().get(columnName);
+            String columnType = columnInfo.getType();
+            if (columnType.startsWith("s") || columnType.startsWith("S")) {
+                // can not perform min, max, avg, sum
+                if (type != null && !type.equals(AggregateType.COUNT)) {
+                    throw new TableException("Cannot perform min,max, avg, sum on String column " + columnName);
+                }
+            }
+        }
+
+        // check group by clause
+        if (groupByColumn != null) {
+            for (SelectedColumn column : groupByColumn) {
+                if (column.getType()!=null) {
+                    throw new TableException("Syntax error");
+                }
+                if(column.getTableName()!= null && !column.getTableName().equals(mainTableName)) {
+                    throw new TableException("Unknown table name " + column.getTableName());
+                }
+                if(!tableDefinition.getColumns().containsKey(column.getColumnName())) {
+                    throw new TableException("In Group By: Unknown column " + column.getColumnName() + " in " + mainTableName);
+                }
+            }
+        }
+
+        // check condition node
+        checkCondition(mainTableName, condition);
+    }
+
+
+    private void checkCondition(String tableName, ConditionNode condition) throws TableException {
         TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(tableName);
         Map<String, ColumnInfo> columnsDefinition = tableDefinition.getColumns();
         if (condition instanceof ConditionExpression expression) {
@@ -249,8 +313,8 @@ public class StorageManager {
 
         }
         if (condition instanceof LogicalConditionNode logicalConditionNode) {
-            checkFindCondition(tableName, logicalConditionNode.getLeft());
-            checkFindCondition(tableName, logicalConditionNode.getRight());
+            checkCondition(tableName, logicalConditionNode.getLeft());
+            checkCondition(tableName, logicalConditionNode.getRight());
         }
     }
 
@@ -285,32 +349,10 @@ public class StorageManager {
     }
 
 
-    private List<Pair<Integer, String>> getFindSelectedIndexTypes(String tableName, List<String> selectedColumn) throws TableException {
-        TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(tableName);
-        if (selectedColumn.size() == 1 && selectedColumn.get(0).equals("*")) {
-            List<Pair<Integer, String>> ret = new ArrayList<>();
-            for (String s : tableDefinition.getColumns().keySet()) {
-                ret.add(new Pair<>(tableDefinition.getColumns().get(s).getIndex(), tableDefinition.getColumns().get(s).getType()));
-            }
-            return ret;
-        }
-
-        for (String column : selectedColumn) {
-            if (!tableDefinition.getColumns().containsKey(column)) {
-                throw new TableException("Column " + column + " does not exist in table " + tableName);
-            }
-        }
-        List<Pair<Integer, String>> ret = new ArrayList<>();
-        for (String column : selectedColumn) {
-            ret.add(new Pair<>(tableDefinition.getColumns().get(column).getIndex(), tableDefinition.getColumns().get(column).getType()));
-        }
-        return ret;
-    }
-
     public void deleteWithCondition(DeleteStatement statement) throws TableException {
         String tableName = statement.getTableName();
         ConditionNode condition = statement.getCondition();
-        checkFindCondition(tableName, condition);
+        checkCondition(tableName, condition);
         // check
         List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
         if (condition instanceof ConditionExpression expression) {
@@ -430,7 +472,7 @@ public class StorageManager {
                 String[] columns = line.split("\t");
 
                 // Modify the specified columns
-                for(int i = 0; i < index.size(); i ++) {
+                for (int i = 0; i < index.size(); i++) {
                     int columnIndex = index.get(i);
                     String modifyValue = value.get(i);
                     columns[columnIndex] = modifyValue;
@@ -461,7 +503,7 @@ public class StorageManager {
     public void updateWithCondition(UpdateStatement statement) throws TableException {
         System.out.println("update with condition");
         String tableName = statement.getTableName();
-        if(!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
+        if (!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
             throw new TableException("Table " + tableName + " does not exist");
         }
 
@@ -479,7 +521,7 @@ public class StorageManager {
         }
 
         // check condition node
-        checkFindCondition(tableName, statement.getCondition());
+        checkCondition(tableName, statement.getCondition());
 
         // update file
         List<Integer> index = new ArrayList<>();
@@ -496,7 +538,7 @@ public class StorageManager {
 
         }
         List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
-        for(String filePath: fileList) {
+        for (String filePath : fileList) {
             List<Long> rowList = sparkReader.updateTableWithCondition(STORAGE_PATH + filePath, index, value, statement.getCondition(), columnsInfo);
             updateFileWithCondition(filePath, rowList, index, value);
         }

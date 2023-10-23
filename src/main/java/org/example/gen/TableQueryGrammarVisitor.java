@@ -65,11 +65,35 @@ public interface TableQueryGrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitExpression(TableQueryGrammarParser.ExpressionContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#groupByClause}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitGroupByClause(TableQueryGrammarParser.GroupByClauseContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link TableQueryGrammarParser#columnList}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
 	T visitColumnList(TableQueryGrammarParser.ColumnListContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#tableColumnName}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTableColumnName(TableQueryGrammarParser.TableColumnNameContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#joinConditionList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitJoinConditionList(TableQueryGrammarParser.JoinConditionListContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#joinCondition}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitJoinCondition(TableQueryGrammarParser.JoinConditionContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link TableQueryGrammarParser#logicalExpression}.
 	 * @param ctx the parse tree
@@ -100,6 +124,12 @@ public interface TableQueryGrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitColumnName(TableQueryGrammarParser.ColumnNameContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link TableQueryGrammarParser#aggregateFunctions}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitAggregateFunctions(TableQueryGrammarParser.AggregateFunctionsContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link TableQueryGrammarParser#dataValue}.
 	 * @param ctx the parse tree

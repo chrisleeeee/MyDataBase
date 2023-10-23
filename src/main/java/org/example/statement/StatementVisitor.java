@@ -1,7 +1,11 @@
 package org.example.statement;
 
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.example.gen.TableQueryGrammarBaseVisitor;
 import org.example.gen.TableQueryGrammarParser;
+import org.example.model.AggregateType;
+import org.example.model.JoinClause;
+import org.example.model.SelectedColumn;
 import org.example.model.TypeEnum;
 import org.example.model.conditions.*;
 
@@ -42,9 +46,35 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         statement.setSelectedColumn(parseSelectedColumns(ctx.columnList()));
         statement.setTableName(ctx.tableName().getText().toLowerCase());
         statement.setType(TypeEnum.FIND);
+
+
+        if(ctx.joinConditionList() != null) {
+            List<TableQueryGrammarParser.JoinConditionContext> joinConditionContexts = ctx.joinConditionList().joinCondition();
+            List<JoinClause> joinClauses = new ArrayList<>();
+            for (TableQueryGrammarParser.JoinConditionContext context : joinConditionContexts) {
+                joinClauses.add(new JoinClause(context.tableName().getText().toLowerCase(),
+                        new SelectedColumn(null, context.tableColumnName().get(0).tableName().getText().toLowerCase(),context.tableColumnName().get(0).columnName().getText().toLowerCase()),
+                        new SelectedColumn(null, context.tableColumnName().get(1).tableName().getText().toLowerCase(),context.tableColumnName().get(1).columnName().getText().toLowerCase())));
+            }
+            statement.setJoinClause(joinClauses);
+        }
+
         if (ctx.conditionList() != null) {
             TableQueryGrammarParser.LogicalExpressionContext root = ctx.conditionList().expression().logicalExpression();
             statement.setCondition(parseCondition(root));
+        }
+
+        if(ctx.groupByClause() != null) {
+            List<SelectedColumn> groupByColumns = new ArrayList<>();
+            for (TableQueryGrammarParser.ColumnNameContext context : ctx.groupByClause().columnList().columnName()) {
+                SelectedColumn r = new SelectedColumn();
+                if(context.tableName()!= null) {
+                    r.setTableName(context.tableName().getText().toLowerCase());
+                }
+                r.setColumnName(context.IDENTIFIER().getText().toLowerCase());
+                groupByColumns.add(r);
+            }
+            statement.setGroupByColumn(groupByColumns);
         }
         return statement;
     }
@@ -74,14 +104,41 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         return statement;
     }
 
-    private List<String> parseSelectedColumns(TableQueryGrammarParser.ColumnListContext columnList) {
-        List<String> selectedColumns = new ArrayList<>();
+    private List<SelectedColumn> parseSelectedColumns(TableQueryGrammarParser.ColumnListContext columnList) {
+        List<SelectedColumn> selectedColumns = new ArrayList<>();
         if (columnList.columnName().size() == 0) {
-            selectedColumns.add("*");
+            SelectedColumn selectedColumn = new SelectedColumn();
+            selectedColumn.setColumnName("*");
+            selectedColumns.add(selectedColumn);
         }
 
         for (TableQueryGrammarParser.ColumnNameContext columnNameContext : columnList.columnName()) {
-            selectedColumns.add(columnNameContext.getText().toLowerCase());
+            SelectedColumn selectedColumn = new SelectedColumn();
+            if(columnNameContext.tableName()!= null) {
+                selectedColumn.setTableName(columnNameContext.tableName().getText().toLowerCase());
+            }
+
+            if(columnNameContext.aggregateFunctions() != null) {
+                String aggregateType = columnNameContext.aggregateFunctions().getText();
+                if(aggregateType.equalsIgnoreCase("min")) {
+                    selectedColumn.setType(AggregateType.MIN);
+                } else if(aggregateType.equalsIgnoreCase("max")) {
+                    selectedColumn.setType(AggregateType.MAX);
+                } else if(aggregateType.equalsIgnoreCase("count")) {
+                    selectedColumn.setType(AggregateType.COUNT);
+                } else if(aggregateType.equalsIgnoreCase("sum")) {
+                    selectedColumn.setType(AggregateType.SUM);
+                } else if(aggregateType.equalsIgnoreCase("avg")) {
+                    selectedColumn.setType(AggregateType.AVG);
+                }
+            }
+            if(columnNameContext.getText().startsWith("*")) {
+                selectedColumn.setColumnName("*");
+            } else {
+                selectedColumn.setColumnName(columnNameContext.IDENTIFIER().toString());
+            }
+
+            selectedColumns.add(selectedColumn);
         }
         return selectedColumns;
     }

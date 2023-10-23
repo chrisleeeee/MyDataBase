@@ -98,6 +98,16 @@ public interface TableQueryGrammarListener extends ParseTreeListener {
 	 */
 	void exitExpression(TableQueryGrammarParser.ExpressionContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#groupByClause}.
+	 * @param ctx the parse tree
+	 */
+	void enterGroupByClause(TableQueryGrammarParser.GroupByClauseContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#groupByClause}.
+	 * @param ctx the parse tree
+	 */
+	void exitGroupByClause(TableQueryGrammarParser.GroupByClauseContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link TableQueryGrammarParser#columnList}.
 	 * @param ctx the parse tree
 	 */
@@ -107,6 +117,36 @@ public interface TableQueryGrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitColumnList(TableQueryGrammarParser.ColumnListContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#tableColumnName}.
+	 * @param ctx the parse tree
+	 */
+	void enterTableColumnName(TableQueryGrammarParser.TableColumnNameContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#tableColumnName}.
+	 * @param ctx the parse tree
+	 */
+	void exitTableColumnName(TableQueryGrammarParser.TableColumnNameContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#joinConditionList}.
+	 * @param ctx the parse tree
+	 */
+	void enterJoinConditionList(TableQueryGrammarParser.JoinConditionListContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#joinConditionList}.
+	 * @param ctx the parse tree
+	 */
+	void exitJoinConditionList(TableQueryGrammarParser.JoinConditionListContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#joinCondition}.
+	 * @param ctx the parse tree
+	 */
+	void enterJoinCondition(TableQueryGrammarParser.JoinConditionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#joinCondition}.
+	 * @param ctx the parse tree
+	 */
+	void exitJoinCondition(TableQueryGrammarParser.JoinConditionContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link TableQueryGrammarParser#logicalExpression}.
 	 * @param ctx the parse tree
@@ -157,6 +197,16 @@ public interface TableQueryGrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitColumnName(TableQueryGrammarParser.ColumnNameContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#aggregateFunctions}.
+	 * @param ctx the parse tree
+	 */
+	void enterAggregateFunctions(TableQueryGrammarParser.AggregateFunctionsContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#aggregateFunctions}.
+	 * @param ctx the parse tree
+	 */
+	void exitAggregateFunctions(TableQueryGrammarParser.AggregateFunctionsContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link TableQueryGrammarParser#dataValue}.
 	 * @param ctx the parse tree

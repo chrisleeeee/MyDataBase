@@ -1,31 +1,36 @@
 package org.example.statement;
 
+import org.example.model.JoinClause;
+import org.example.model.SelectedColumn;
 import org.example.model.conditions.ConditionNode;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class FindRecordStatement extends Statement{
+public class FindRecordStatement extends Statement {
 
-    private List<String> selectedColumn;
+    private List<SelectedColumn> selectedColumn;
 
     private ConditionNode condition;
 
+    private List<JoinClause> joinClause;
+
+    private List<SelectedColumn> groupByColumn;
+
     public FindRecordStatement() {
-        selectedColumn = new ArrayList<>();
-        condition = null;
     }
 
-    public FindRecordStatement(List<String> selectedColumn, ConditionNode condition) {
+    public FindRecordStatement(List<SelectedColumn> selectedColumn, ConditionNode condition, List<JoinClause> joinClause, List<SelectedColumn> groupByColumn) {
         this.selectedColumn = selectedColumn;
         this.condition = condition;
+        this.joinClause = joinClause;
+        this.groupByColumn = groupByColumn;
     }
 
-    public List<String> getSelectedColumn() {
+    public List<SelectedColumn> getSelectedColumn() {
         return selectedColumn;
     }
 
-    public void setSelectedColumn(List<String> selectedColumn) {
+    public void setSelectedColumn(List<SelectedColumn> selectedColumn) {
         this.selectedColumn = selectedColumn;
     }
 
@@ -35,5 +40,21 @@ public class FindRecordStatement extends Statement{
 
     public void setCondition(ConditionNode condition) {
         this.condition = condition;
+    }
+
+    public List<JoinClause> getJoinClause() {
+        return joinClause;
+    }
+
+    public void setJoinClause(List<JoinClause> joinClause) {
+        this.joinClause = joinClause;
+    }
+
+    public List<SelectedColumn> getGroupByColumn() {
+        return groupByColumn;
+    }
+
+    public void setGroupByColumn(List<SelectedColumn> groupByColumn) {
+        this.groupByColumn = groupByColumn;
     }
 }
