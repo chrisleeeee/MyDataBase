@@ -1,24 +1,26 @@
 package org.example.model.conditions;
 
+import org.example.model.SelectedColumn;
+
 public class ConditionExpression extends ConditionNode {
-    private String columnName;
+    private SelectedColumn columnName;
     private ComparisonOperator comparator;
     private String value;
 
     public ConditionExpression() {
     }
 
-    public ConditionExpression(String columnName, ComparisonOperator comparator, String value) {
+    public ConditionExpression(SelectedColumn columnName, ComparisonOperator comparator, String value) {
         this.columnName = columnName;
         this.comparator = comparator;
         this.value = value;
     }
 
-    public String getColumnName() {
+    public SelectedColumn getColumnName() {
         return columnName;
     }
 
-    public void setColumnName(String columnName) {
+    public void setColumnName(SelectedColumn columnName) {
         this.columnName = columnName;
     }
 

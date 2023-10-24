@@ -87,7 +87,17 @@ public class SparkReader {
                     }
                     return data;
                 });
+        if(condition == null) {
+            JavaRDD<List<Object>> rdd = allColumnsData.map(record -> {
+                List<Object> displayData = new ArrayList<>();
+                for (int i = 0; i < indexes.size(); i++) {
+                    displayData.add(record.get(indexes.get(i)));
+                }
+                return displayData;
+            });
+            rdd.collect().forEach(System.out::println);
 
+        }
         if (condition instanceof ConditionExpression expression) {
             // only one condition
             JavaRDD<List<Object>> filteredCondition = filterRDD(expression,
@@ -242,7 +252,7 @@ public class SparkReader {
                                             JavaRDD<List<Object>> allColumnsData,
                                             List<Integer> indexes,
                                             List<String> dataTypes) {
-        String columnName = expression.getColumnName();
+        String columnName = expression.getColumnName().getColumnName();
         int columnIndex = allColumnsInfo.get(columnName).getIndex();
         String columnDataType = allColumnsInfo.get(columnName).getType();
         String value = expression.getValue();
@@ -351,7 +361,7 @@ public class SparkReader {
                                           Map<String, ColumnInfo> columns,
                                           JavaRDD<List<Object>> tableData) {
         if (conditionNode instanceof ConditionExpression expression) {
-            String columnName = expression.getColumnName();
+            String columnName = expression.getColumnName().getColumnName();
             String value = expression.getValue();
             ComparisonOperator comparator = expression.getComparator();
             int columnIndex = columns.get(columnName).getIndex();

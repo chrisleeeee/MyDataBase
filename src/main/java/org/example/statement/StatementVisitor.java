@@ -1,6 +1,5 @@
 package org.example.statement;
 
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.example.gen.TableQueryGrammarBaseVisitor;
 import org.example.gen.TableQueryGrammarParser;
 import org.example.model.AggregateType;
@@ -149,8 +148,15 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
             // there is only condition, without 'NOT'
             // use ConditionExpression
             ConditionExpression expression = new ConditionExpression();
-            expression.setColumnName(root.comparisonExpression().columnName().getText());
+
+            SelectedColumn column = new SelectedColumn();
+            column.setColumnName(root.comparisonExpression().columnName().IDENTIFIER().getText().toLowerCase());
+            if(root.comparisonExpression().columnName().tableName() != null) {
+                column.setTableName(root.comparisonExpression().columnName().tableName().getText().toLowerCase());
+            }
             expression.setValue(root.comparisonExpression().dataValue().getText());
+
+            expression.setColumnName(column);
             switch (root.comparisonExpression().children.get(1).getText()) {
                 case "=" -> expression.setComparator(ComparisonOperator.EQ);
                 case ">" -> expression.setComparator(ComparisonOperator.GT);
@@ -167,7 +173,14 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
             // use can only input not A or not B
             // !!!!!! no nested
             ConditionExpression expression = new ConditionExpression();
-            expression.setColumnName(root.logicalExpression(0).comparisonExpression().columnName().getText());
+
+            SelectedColumn column = new SelectedColumn();
+            column.setColumnName(root.logicalExpression(0).comparisonExpression().columnName().IDENTIFIER().getText().toLowerCase());
+            if(root.logicalExpression(0).comparisonExpression().columnName().tableName() != null) {
+                column.setTableName(root.logicalExpression(0).comparisonExpression().columnName().tableName().getText().toLowerCase());
+            }
+
+            expression.setColumnName(column);
             expression.setValue(root.logicalExpression(0).comparisonExpression().dataValue().getText());
             switch (root.logicalExpression(0).comparisonExpression().children.get(1).getText()) {
                 case "=" -> expression.setComparator(ComparisonOperator.NEQ);

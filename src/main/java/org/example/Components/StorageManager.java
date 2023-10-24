@@ -198,103 +198,10 @@ public class StorageManager {
 
 
     public void findRecord(FindRecordStatement statement) throws TableException {
-        System.out.println("find statement");
-        checkFindValidity(statement);
-        if(statement.getJoinClause() == null) {
-            System.out.println("check completed, perform single table find");
-        } else {
-            System.out.println("check completed, perform multiple table find");
-        }
-
 
     }
 
-    private void checkFindValidity(FindRecordStatement statement) throws TableException {
-        String mainTableName = statement.getTableName();
-        if (!this.metaData.getTableDefinitionMap().containsKey(mainTableName)) {
-            throw new TableException("Table " + mainTableName + " does not exist");
-        }
 
-        // single table find
-        List<SelectedColumn> selectedColumns = statement.getSelectedColumn();
-        if (statement.getJoinClause() == null) {
-            checkSelectedColumnsForSingle(selectedColumns, mainTableName, statement.getGroupByColumn(), statement.getCondition());
-        } else {
-            // multiple table find
-            checkSelectedColumnsForJoins(selectedColumns, mainTableName, statement.getJoinClause(), statement.getGroupByColumn());
-        }
-
-    }
-
-    private void checkSelectedColumnsForJoins(List<SelectedColumn> selectedColumns,
-                                              String mainTableName,
-                                              List<JoinClause> joinClause,
-                                              List<SelectedColumn> groupByColumn) {
-
-    }
-
-    private void checkSelectedColumnsForSingle(List<SelectedColumn> selectedColumns,
-                                               String mainTableName,
-                                               List<SelectedColumn> groupByColumn,
-                                               ConditionNode condition) throws TableException {
-        System.out.println("check single table select statement!");
-        TableDefinition tableDefinition = this.metaData.getTableDefinitionMap().get(mainTableName);
-        if (selectedColumns.size() == 1 && selectedColumns.get(0).getColumnName().equals("*")) {
-            // can only perform count
-            if (selectedColumns.get(0).getType() != null && !selectedColumns.get(0).getType().equals(AggregateType.COUNT)) {
-                throw new TableException("Can only perform COUNT on all columns");
-            }
-            return;
-        }
-
-        // check selected columns for single table selection
-        for (SelectedColumn column : selectedColumns) {
-            String tableName = column.getTableName();
-            String columnName = column.getColumnName();
-            AggregateType type = column.getType();
-            if(columnName.equals("*")) {
-                if(type!=null && !type.equals(AggregateType.COUNT)) {
-                    throw new TableException("Invalid Aggregate function for *");
-                }
-                if(type == null) {
-                    throw new TableException("Syntax Error");
-                }
-                continue;
-            }
-            if (tableName != null && !tableName.equals(mainTableName)) {
-                throw new TableException("Mismatched table names: " + tableName + " and " + mainTableName);
-            }
-            if (!tableDefinition.getColumns().containsKey(columnName)) {
-                throw new TableException("Unknown column " + columnName + " in table " + mainTableName);
-            }
-            ColumnInfo columnInfo = tableDefinition.getColumns().get(columnName);
-            String columnType = columnInfo.getType();
-            if (columnType.startsWith("s") || columnType.startsWith("S")) {
-                // can not perform min, max, avg, sum
-                if (type != null && !type.equals(AggregateType.COUNT)) {
-                    throw new TableException("Cannot perform min,max, avg, sum on String column " + columnName);
-                }
-            }
-        }
-
-        // check group by clause
-        if (groupByColumn != null) {
-            for (SelectedColumn column : groupByColumn) {
-                if (column.getType()!=null) {
-                    throw new TableException("Syntax error");
-                }
-                if(column.getTableName()!= null && !column.getTableName().equals(mainTableName)) {
-                    throw new TableException("Unknown table name " + column.getTableName());
-                }
-                if(!tableDefinition.getColumns().containsKey(column.getColumnName())) {
-                    throw new TableException("In Group By: Unknown column " + column.getColumnName() + " in " + mainTableName);
-                }
-            }
-        }
-
-        // check condition node
-        checkCondition(mainTableName, condition);
-    }
 
 
     private void checkCondition(String tableName, ConditionNode condition) throws TableException {
@@ -302,9 +209,13 @@ public class StorageManager {
         Map<String, ColumnInfo> columnsDefinition = tableDefinition.getColumns();
         if (condition instanceof ConditionExpression expression) {
             // only one condition
-            String columnName = expression.getColumnName();
+            String selectedTableName = expression.getColumnName().getTableName();
+            String columnName = expression.getColumnName().getColumnName();
             String value = expression.getValue();
-            if (!columnsDefinition.containsKey(columnName)) {
+            if(selectedTableName!=null && !selectedTableName.equals(tableName)) {
+                throw new TableException("Mismatched table names: " + tableName + " and " + selectedTableName);
+            }
+            if (selectedTableName == null && !columnsDefinition.containsKey(columnName)) {
                 throw new TableException("Column " + columnName + " does not exist in table " + tableName);
             }
 
@@ -357,7 +268,11 @@ public class StorageManager {
         List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
         if (condition instanceof ConditionExpression expression) {
             for (String filePath : fileList) {
-                String columnName = expression.getColumnName();
+                String selectedTableName = expression.getColumnName().getTableName();
+                if(selectedTableName!=null && !selectedTableName.equals(tableName)) {
+                    throw new TableException("Mismatched table names");
+                }
+                String columnName = expression.getColumnName().getColumnName();
                 int columnIndex = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getIndex();
                 String dataType = this.metaData.getTableDefinitionMap().get(tableName).getColumns().get(columnName).getType();
                 ComparisonOperator comparator = expression.getComparator();
