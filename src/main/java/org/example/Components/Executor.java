@@ -22,7 +22,7 @@ public class Executor {
 
         // validate String definition, must be positive integer
         int recordLength = 1;
-        for(ColumnDefinition definition: statement.getColumnDefinition()) {
+        for (ColumnDefinition definition : statement.getColumnDefinition()) {
             if (definition.getDataType().startsWith("s") || definition.getDataType().startsWith("S")) {
                 int startIndex = definition.getDataType().indexOf("(");
                 int endIndex = definition.getDataType().indexOf(")");
@@ -33,15 +33,15 @@ public class Executor {
                 }
                 recordLength += Integer.parseInt(number);
             }
-            if(definition.getDataType().equals("int")) {
+            if (definition.getDataType().equals("int")) {
                 recordLength += 4;
             }
-            if(definition.getDataType().equals("float")) {
+            if (definition.getDataType().equals("float")) {
                 recordLength += 8;
             }
         }
         tableDefinition.setRecordLength(recordLength);
-        tableDefinition.getFileList().add(statement.getTableName()+"1.txt");
+        tableDefinition.getFileList().add(statement.getTableName() + "1.txt");
         storageManager.createTableMetaData(tableDefinition);
 
     }
@@ -57,12 +57,12 @@ public class Executor {
         storageManager.insertRecord(assignment);
     }
 
-    public static void executeFindStatement(FindRecordStatement statement) throws TableException{
+    public static void executeFindStatement(FindRecordStatement statement) throws TableException {
         storageManager.findRecord(statement);
     }
 
-    public static void executeDeleteStatement(DeleteStatement statement) throws TableException{
-        if(statement.getCondition() == null) {
+    public static void executeDeleteStatement(DeleteStatement statement) throws TableException {
+        if (statement.getCondition() == null) {
             // delete all data files
             storageManager.deleteAllData(statement.getTableName());
         } else {
@@ -70,8 +70,8 @@ public class Executor {
         }
     }
 
-    public static void executeUpdateStatement(UpdateStatement statement) throws TableException{
-        if(statement.getCondition() == null) {
+    public static void executeUpdateStatement(UpdateStatement statement) throws TableException {
+        if (statement.getCondition() == null) {
             storageManager.updateAllData(statement);
         } else {
             storageManager.updateWithCondition(statement);

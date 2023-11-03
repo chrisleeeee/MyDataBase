@@ -2,6 +2,9 @@ package org.example.Components;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import javafx.util.Pair;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.example.Exception.TableException;
 import org.example.model.*;
 import org.example.model.conditions.ComparisonOperator;
@@ -13,13 +16,15 @@ import org.example.model.table.TableDefinition;
 import org.example.statement.DeleteStatement;
 import org.example.statement.FindRecordStatement;
 import org.example.statement.UpdateStatement;
+import scala.Tuple2;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 
 public class StorageManager {
@@ -198,10 +203,181 @@ public class StorageManager {
 
 
     public void findRecord(FindRecordStatement statement) throws TableException {
+        List<JoinClause> joinClause = statement.getJoinClause();
+        if (joinClause == null || joinClause.size() == 0) {
+            // single table
+            String tableName = statement.getTableName();
+            if (!this.metaData.getTableDefinitionMap().containsKey(tableName)) {
+                throw new TableException("Table " + tableName + " not exist");
+            }
+            // check selected columns
+            List<Integer> indexes = new ArrayList<>();
+            List<String> dataTypes = new ArrayList<>();
 
+            Set<String> unAggregatedColumns = new HashSet<>();
+            Set<String> aggregatedColumns = new HashSet<>();
+            List<Integer> unAggregatedColumnIndex = new ArrayList<>();
+            List<Integer> aggregatedColumnIndex = new ArrayList<>();
+            List<String> aggregateColumnTypes = new ArrayList<>();
+            List<String> columnAggregateTypes = new ArrayList<>();
+
+            Map<String, ColumnInfo> columnsInfo = this.metaData.getTableDefinitionMap().get(tableName).getColumns();
+            List<SelectedColumn> selectedColumns = statement.getSelectedColumn();
+
+            for (int i = 0; i < selectedColumns.size(); i ++) {
+                SelectedColumn column = selectedColumns.get(i);
+                String columnTableName = column.getTableName();
+                String columnName = column.getColumnName();
+                AggregateType aggregateType = column.getType();
+                if (columnTableName != null && !columnTableName.equals(tableName)) {
+                    throw new TableException("Mismatched table name between " + columnTableName + " and " + tableName);
+                }
+                if (Objects.equals(columnName, "*")) {
+                    continue;
+                }
+                if (!columnsInfo.containsKey(columnName)) {
+                    throw new TableException("Cannot find column " + columnName + " in " + tableName);
+                }
+
+                if (aggregateType != null) {
+                    if (!aggregateType.equals(AggregateType.COUNT) && (columnsInfo.get(columnName).getType().startsWith("s") || columnsInfo.get(columnName).getType().startsWith("s"))) {
+                        throw new TableException("Cannot perform aggregate function other than COUNT on String column");
+                    }
+                    aggregatedColumns.add(columnName);
+                    aggregatedColumnIndex.add(i);
+                    aggregateColumnTypes.add(columnsInfo.get(columnName).getType());
+                    columnAggregateTypes.add(String.valueOf(aggregateType));
+                } else {
+                    unAggregatedColumns.add(columnName);
+                    unAggregatedColumnIndex.add(i);
+                }
+                indexes.add(columnsInfo.get(columnName).getIndex());
+                dataTypes.add(columnsInfo.get(columnName).getType());
+            }
+            checkCondition(tableName, statement.getCondition());
+
+            // check group by
+            boolean needGroupBy = false;
+            List<SelectedColumn> groupByColumn = statement.getGroupByColumn();
+            if (groupByColumn == null && aggregatedColumns.size() != 0) {
+                // if group by column is null
+                // two options
+                // 1. no aggregate functions
+                // 2. in having clause, the un-aggregated column is assigned with values (must use =);
+                // ignore this, must have group by clause in any scenario. because it doesn't affect the result.
+                throw new TableException("Missing Group By clause!");
+            }
+
+            if (aggregatedColumns.size() == 0 && groupByColumn != null) {
+                throw new TableException("Group By clause contains nonaggregated column");
+            }
+
+            if (aggregatedColumns.size() != 0) {
+                if (unAggregatedColumns.size() != groupByColumn.size()) {
+                    throw new TableException("Missing nonaggregated column in group by clause or Group By clause contains aggregated column");
+                }
+                for (SelectedColumn column : groupByColumn) {
+                    String groupByTableName = column.getTableName();
+                    String groupByColumnName = column.getColumnName();
+                    if (groupByTableName != null && !groupByTableName.equals(tableName)) {
+                        throw new TableException("Mismatched table name between " + groupByTableName + " and " + tableName);
+                    }
+                    if (!columnsInfo.containsKey(groupByColumnName)) {
+                        throw new TableException("Cannot find column " + groupByColumnName + " in " + tableName);
+                    }
+                    if (!unAggregatedColumns.contains(groupByColumnName)) {
+                        throw new TableException("Group By clause contains aggregated column");
+                    }
+                }
+                needGroupBy = true;
+            }
+            // access table, select all columns first
+            List<String> fileList = this.metaData.getTableDefinitionMap().get(tableName).getFileList();
+
+            for (String path : fileList) {
+                // filtering and projection
+                JavaRDD<List<Object>> rdd = sparkReader.readTableDataWithCondition(STORAGE_PATH + path,
+                        indexes,
+                        dataTypes,
+                        columnsInfo,
+                        statement.getCondition());
+                // group by and aggregate
+                if (needGroupBy) {
+                    System.out.println("need group by");
+                    System.out.println(aggregatedColumnIndex);
+                    System.out.println(unAggregatedColumnIndex);
+                    JavaPairRDD<List<Object>, List<Object>> pairRDD = rdd.mapToPair(row -> {
+                        List<Object> key = new ArrayList<>();
+                        List<Object> value = new ArrayList<>();
+                        for(Integer index: unAggregatedColumnIndex) {
+                            key.add(row.get(index));
+                        }
+                        for(Integer index: aggregatedColumnIndex) {
+                            value.add(row.get(index));
+                        }
+                        return new Tuple2<>(key, value);
+                    });
+//                    pairRDD.collect().forEach(System.out::println);
+                    JavaPairRDD<List<Object>, Iterable<List<Object>>> javaPairRDD = pairRDD.groupByKey();
+                    int size = aggregatedColumns.size();
+                    JavaRDD<Tuple2<List<Object>, List<List<Object>>>> map = javaPairRDD.map(row -> {
+                        List<Object> key = row._1();
+                        List<List<Object>> value = new ArrayList<>();
+                        for (int i = 0; i < size; i++) {
+                            ArrayList<Object> objects = new ArrayList<>();
+                            int finalI = i;
+                            row._2().forEach(val -> {
+                                objects.add(val.get(finalI));
+                            });
+                            value.add(objects);
+                        }
+                        return new Tuple2<>(key, value);
+                    });
+                    JavaRDD<Tuple2<List<Object>, List<Object>>> resultRDD = map.map(row -> {
+                        List<Object> key = row._1();
+                        List<List<Object>> value = row._2();
+
+                        // Calculate the mean of the first list
+                        List<Object> res = new ArrayList<>();
+                        for(int i = 0; i < aggregateColumnTypes.size(); i ++) {
+                            String dataType = aggregateColumnTypes.get(i);
+                            String aggregateType = columnAggregateTypes.get(i);
+                            List<Object> list = value.get(i);
+                            if(dataType.equalsIgnoreCase("float")) {
+                                DoubleStream doubleStream = list.stream().mapToDouble(val -> (double) val);
+                                switch (aggregateType) {
+                                    case "AVG" -> {res.add(doubleStream.average().orElse(0.0));}
+                                    case "MAX" -> {res.add(doubleStream.max().orElse(0.0));}
+                                    case "MIN" -> {res.add(doubleStream.min().orElse(0.0));}
+                                    case "SUM" -> {res.add(doubleStream.sum());}
+                                    case "COUNT" -> {res.add(doubleStream.count());}
+                                }
+                            } else if(dataType.equalsIgnoreCase("int")) {
+                                IntStream intStream = list.stream().mapToInt(val -> (int) val);
+                                switch (aggregateType) {
+                                    case "AVG" -> {res.add(intStream.average().orElse(0.0));}
+                                    case "MAX" -> {res.add(intStream.max().orElse(0));}
+                                    case "MIN" -> {res.add(intStream.min().orElse(0));}
+                                    case "SUM" -> {res.add(intStream.sum());}
+                                    case "COUNT" -> {res.add(intStream.count());}
+                                }
+                            }
+                        }
+                        return new Tuple2<>(key, res);
+                    });
+                    resultRDD.collect().forEach(System.out::println);
+//                    resultRDD.collect().forEach(System.out::println);
+//                    map.collect().forEach(System.out::println);
+                } else {
+                    rdd.collect().forEach(System.out::println);
+                }
+
+            }
+
+        } else {
+
+        }
     }
-
-
 
 
     private void checkCondition(String tableName, ConditionNode condition) throws TableException {
@@ -212,14 +388,15 @@ public class StorageManager {
             String selectedTableName = expression.getColumnName().getTableName();
             String columnName = expression.getColumnName().getColumnName();
             String value = expression.getValue();
-            if(selectedTableName!=null && !selectedTableName.equals(tableName)) {
+            if (selectedTableName != null && !selectedTableName.equals(tableName)) {
                 throw new TableException("Mismatched table names: " + tableName + " and " + selectedTableName);
             }
-            if (selectedTableName == null && !columnsDefinition.containsKey(columnName)) {
+            if (!columnsDefinition.containsKey(columnName)) {
                 throw new TableException("Column " + columnName + " does not exist in table " + tableName);
             }
-
+            System.out.println(columnName);
             String dataType = columnsDefinition.get(columnName).getType();
+
             checkColumnConditionValidity(columnName, dataType, value, expression.getComparator());
 
         }
@@ -269,7 +446,7 @@ public class StorageManager {
         if (condition instanceof ConditionExpression expression) {
             for (String filePath : fileList) {
                 String selectedTableName = expression.getColumnName().getTableName();
-                if(selectedTableName!=null && !selectedTableName.equals(tableName)) {
+                if (selectedTableName != null && !selectedTableName.equals(tableName)) {
                     throw new TableException("Mismatched table names");
                 }
                 String columnName = expression.getColumnName().getColumnName();
@@ -283,7 +460,6 @@ public class StorageManager {
             for (String filePath : fileList) {
                 sparkReader.deleteTableDataWithConditionList(logicalNode, STORAGE_PATH + filePath, this.metaData.getTableDefinitionMap().get(tableName).getColumns());
             }
-            System.out.println("logical delete");
         }
 
     }

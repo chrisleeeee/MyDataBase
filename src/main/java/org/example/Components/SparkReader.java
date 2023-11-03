@@ -56,10 +56,10 @@ public class SparkReader {
         map.collect().forEach(System.out::println);
     }
 
-    public void readTableDataWithCondition(String tablePath,
-                                           List<Integer> indexes,
-                                           List<String> dataTypes,
-                                           Map<String, ColumnInfo> allColumnsInfo, ConditionNode condition) {
+    public JavaRDD<List<Object>> readTableDataWithCondition(String tablePath,
+                                                            List<Integer> indexes,
+                                                            List<String> dataTypes,
+                                                            Map<String, ColumnInfo> allColumnsInfo, ConditionNode condition) {
         JavaRDD<String> javaRDD = sparkContext.textFile(tablePath);
         List<Integer> allIndexes = new ArrayList<>();
         List<String> allTypes = new ArrayList<>();
@@ -87,7 +87,21 @@ public class SparkReader {
                     }
                     return data;
                 });
-        if(condition == null) {
+
+        if (condition instanceof ConditionExpression expression) {
+            // only one condition
+            return filterRDD(expression,
+                    allColumnsInfo,
+                    allColumnsData,
+                    indexes,
+                    dataTypes);
+        } else if (condition instanceof LogicalConditionNode logicalExpression) {
+            return filterManyConditions(logicalExpression,
+                    allColumnsInfo,
+                    allColumnsData,
+                    indexes,
+                    dataTypes);
+        } else {
             JavaRDD<List<Object>> rdd = allColumnsData.map(record -> {
                 List<Object> displayData = new ArrayList<>();
                 for (int i = 0; i < indexes.size(); i++) {
@@ -95,24 +109,7 @@ public class SparkReader {
                 }
                 return displayData;
             });
-            rdd.collect().forEach(System.out::println);
-
-        }
-        if (condition instanceof ConditionExpression expression) {
-            // only one condition
-            JavaRDD<List<Object>> filteredCondition = filterRDD(expression,
-                    allColumnsInfo,
-                    allColumnsData,
-                    indexes,
-                    dataTypes);
-            filteredCondition.collect().forEach(System.out::println);
-        } else if (condition instanceof LogicalConditionNode logicalExpression) {
-            JavaRDD<List<Object>> filteredConditions = filterManyConditions(logicalExpression,
-                    allColumnsInfo,
-                    allColumnsData,
-                    indexes,
-                    dataTypes);
-            filteredConditions.collect().forEach(System.out::println);
+            return rdd;
         }
     }
 
