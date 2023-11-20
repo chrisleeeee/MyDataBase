@@ -58,6 +58,16 @@ public interface TableQueryGrammarListener extends ParseTreeListener {
 	 */
 	void exitFindRecordStatement(TableQueryGrammarParser.FindRecordStatementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link TableQueryGrammarParser#sortByClause}.
+	 * @param ctx the parse tree
+	 */
+	void enterSortByClause(TableQueryGrammarParser.SortByClauseContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link TableQueryGrammarParser#sortByClause}.
+	 * @param ctx the parse tree
+	 */
+	void exitSortByClause(TableQueryGrammarParser.SortByClauseContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link TableQueryGrammarParser#updateRecordStatement}.
 	 * @param ctx the parse tree
 	 */

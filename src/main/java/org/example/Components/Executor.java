@@ -58,7 +58,11 @@ public class Executor {
     }
 
     public static void executeFindStatement(FindRecordStatement statement) throws TableException {
-        storageManager.findRecord(statement);
+        if(statement.getJoinClause()!= null) {
+            storageManager.findRecordJoin(statement);
+        } else {
+            storageManager.findRecordSingle(statement);
+        }
     }
 
     public static void executeDeleteStatement(DeleteStatement statement) throws TableException {

@@ -10,7 +10,8 @@ dropTableStatement: DropTable tableName ';'?;
 // addRecord (name = 'Zeyu Li', age = 12) to student;
 addRecordStatement: AddRecord '(' columnAssignment  (',' columnAssignment)* ')' To tableName ';'?;
 // find (name, age) from tableName Having name='Zeyu Li' and age>23;
-findRecordStatement: FindRecord columnList From tableName (joinConditionList)? (conditionList)? groupByClause? ';'? EOF;
+findRecordStatement: FindRecord columnList From tableName (joinConditionList)? (conditionList)? groupByClause? sortByClause?';'? EOF;
+sortByClause: SortBy columnName (DESC|INC);
 updateRecordStatement: UpdateRecord '(' columnAssignment  (',' columnAssignment)* ')' From tableName conditionList? ';'?;
 deleteRecordStatement: DeleteRecord From tableName conditionList?;
 conditionList: Having expression;
@@ -62,6 +63,7 @@ SUM: [Ss][Uu][Mm];
 COUNT: [Cc][Oo][Uu][Nn][Tt];
 
 GroupBy: [Gg][Rr][Oo][Uu][Pp][ ][Bb][Yy];
+SortBy: [Ss][Oo][Rr][Tt][ ][Bb][Yy];
 Join: [Jj][Oo][Ii][Nn];
 On:[Oo][Nn];
 From: [Ff][Rr][Oo][Mm];
@@ -73,6 +75,8 @@ NOT : [Nn][Oo][Tt];
 Integer: [Ii][Nn][Tt];
 Float: [Ff][Ll][Oo][Aa][Tt];
 String: [Ss][Tt][Rr][Ii][Nn][Gg];
+DESC : [Dd][Ee][Ss][Cc];
+INC : [Ii][Nn][Cc];
 
 INT_VALUE: ('+' | '-')? ('0'..'9')+ ;
 FlOAT_VALUE: ('+' | '-')? (DIGIT+ '.' DIGIT* | '.' DIGIT+) ;
@@ -81,6 +85,5 @@ STRING_VALUE: '\'' ( ~'\'' )* '\'';
 IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 DIGIT : '0'..'9' ;
 
+
 WS: [ \t\r\n]+ -> skip;
-
-

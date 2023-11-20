@@ -77,6 +77,18 @@ public class TableQueryGrammarBaseListener implements TableQueryGrammarListener 
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterSortByClause(TableQueryGrammarParser.SortByClauseContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitSortByClause(TableQueryGrammarParser.SortByClauseContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterUpdateRecordStatement(TableQueryGrammarParser.UpdateRecordStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}

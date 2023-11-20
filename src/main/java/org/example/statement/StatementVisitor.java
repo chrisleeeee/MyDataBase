@@ -46,7 +46,6 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
         statement.setTableName(ctx.tableName().getText().toLowerCase());
         statement.setType(TypeEnum.FIND);
 
-
         if(ctx.joinConditionList() != null) {
             List<TableQueryGrammarParser.JoinConditionContext> joinConditionContexts = ctx.joinConditionList().joinCondition();
             List<JoinClause> joinClauses = new ArrayList<>();
@@ -74,6 +73,37 @@ public class StatementVisitor extends TableQueryGrammarBaseVisitor<Statement> {
                 groupByColumns.add(r);
             }
             statement.setGroupByColumn(groupByColumns);
+        }
+
+        if(ctx.sortByClause() != null) {
+            String columnName = ctx.sortByClause().columnName().IDENTIFIER().getText();
+            SelectedColumn column = new SelectedColumn();
+            if(ctx.sortByClause().columnName().tableName()!= null) {
+                String tableName = ctx.sortByClause().columnName().tableName().getText();
+                column.setTableName(tableName);
+            }
+            column.setColumnName(columnName);
+            if(ctx.sortByClause().columnName().aggregateFunctions() != null) {
+                String text = ctx.sortByClause().columnName().aggregateFunctions().getText();
+                if(text.equalsIgnoreCase("min")) {
+                    column.setType(AggregateType.MIN);
+                } else if(text.equalsIgnoreCase("max")) {
+                    column.setType(AggregateType.MAX);
+                } else if(text.equalsIgnoreCase("avg")) {
+                    column.setType(AggregateType.AVG);
+                } else if(text.equalsIgnoreCase("count")) {
+                    column.setType(AggregateType.COUNT);
+                }
+            }
+            if(ctx.sortByClause().DESC() != null) {
+                statement.setSortByDesc(true);
+            } else if(ctx.sortByClause().INC() != null){
+                statement.setSortByDesc(false);
+            } else {
+                statement.setSortByDesc(true);
+            }
+
+            statement.setSortByColumn(column);
         }
         return statement;
     }

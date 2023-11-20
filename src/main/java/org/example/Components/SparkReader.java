@@ -129,6 +129,7 @@ public class SparkReader {
                         int parseValue = Integer.parseInt(value);
                         switch (comparator) {
                             case EQ -> {
+
                                 return res == parseValue;
                             }
                             case NEQ -> {
@@ -189,7 +190,7 @@ public class SparkReader {
     }
 
     private void deleteRows(List<Long> rowsToDelete, String tablePath) {
-        System.out.println(rowsToDelete);
+//        System.out.println(rowsToDelete);
         try (BufferedReader br = new BufferedReader(new FileReader(tablePath));
              BufferedWriter bw = new BufferedWriter(new FileWriter("temp_file.txt"))) {
 
@@ -212,7 +213,7 @@ public class SparkReader {
         System.out.println(originalFile.delete());
         File tempFile = new File("temp_file.txt");
         if (tempFile.renameTo(originalFile)) {
-            System.out.println("Lines removed successfully.");
+            System.out.println("Records removed successfully.");
         } else {
             System.out.println("Failed to remove lines.");
         }
@@ -260,7 +261,8 @@ public class SparkReader {
                 Integer target = Integer.parseInt(value);
                 switch (comparator) {
                     case EQ -> {
-                        return origin == target;
+                        System.out.println(origin + "equals?"+ target + ""+ (Objects.equals(origin, target)));
+                        return Objects.equals(origin, target);
                     }
                     case GT -> {
                         return origin > target;
@@ -275,7 +277,7 @@ public class SparkReader {
                         return origin <= target;
                     }
                     case NEQ -> {
-                        return origin != target;
+                        return !Objects.equals(origin, target);
                     }
                 }
                 return false;
@@ -284,7 +286,7 @@ public class SparkReader {
                 Double target = Double.parseDouble(value);
                 switch (comparator) {
                     case EQ -> {
-                        return origin == target;
+                        return Objects.equals(origin, target);
                     }
                     case GT -> {
                         return origin > target;
@@ -299,7 +301,7 @@ public class SparkReader {
                         return origin <= target;
                     }
                     case NEQ -> {
-                        return origin != target;
+                        return !Objects.equals(origin, target);
                     }
                 }
                 return false;
@@ -477,6 +479,20 @@ public class SparkReader {
         JavaRDD<Long> rowsToUpdate = getRowsToDelete(condition, filePath, columnsInfo, allColumnsData);
         List<Long> rowList = rowsToUpdate.collect();
         return rowList;
+    }
+
+
+    public JavaRDD<List<Object>> readTableRaw(String file) {
+
+        JavaRDD<List<Object>> rawRDD = sparkContext.textFile(file).zipWithIndex().filter(record -> record._1.charAt(0) == '1').map(record -> {
+            String[] split = record._1().split("\t");
+            List<Object> data = new ArrayList<>();
+            for (int i = 1; i < split.length; i++) {
+                data.add(split[i]);
+            }
+            return data;
+        });
+        return rawRDD;
     }
 
 

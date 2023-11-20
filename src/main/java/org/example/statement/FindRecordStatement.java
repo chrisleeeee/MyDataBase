@@ -16,6 +16,26 @@ public class FindRecordStatement extends Statement {
 
     private List<SelectedColumn> groupByColumn;
 
+    private SelectedColumn sortByColumn;
+
+    private boolean sortByDesc;
+
+    public boolean getSortByDesc() {
+        return sortByDesc;
+    }
+
+    public void setSortByDesc(boolean sortByDesc) {
+        this.sortByDesc = sortByDesc;
+    }
+
+    public SelectedColumn getSortByColumn() {
+        return sortByColumn;
+    }
+
+    public void setSortByColumn(SelectedColumn sortByColumn) {
+        this.sortByColumn = sortByColumn;
+    }
+
     public FindRecordStatement() {
     }
 
